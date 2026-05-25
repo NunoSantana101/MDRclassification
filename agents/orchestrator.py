@@ -55,95 +55,91 @@ No markdown fences. No commentary outside the JSON."""
 ORCHESTRATOR_TOOLS = [
     {
         "type": "function",
-        "function": {
-            "name": "run_regulatory_search",
-            "description": (
-                "Retrieve regulatory sources from EUR-Lex, MDCG guidance, "
-                "CJEU rulings, EUDAMED, Borderline Manual, and Team-NB. "
-                "Returns verbatim Annex VIII rule texts and relevant guidance."
-            ),
-            "parameters": {
-                "type": "object",
-                "required": [
-                    "device_description",
-                    "intended_purpose",
-                    "device_type",
-                    "applicable_rules_hint",
-                ],
-                "properties": {
-                    "device_description": {
-                        "type": "string",
-                        "description": "Plain-language description of the device",
-                    },
-                    "intended_purpose": {
-                        "type": "string",
-                        "description": "The device's intended medical purpose",
-                    },
-                    "device_type": {
-                        "type": "string",
-                        "description": "Device type category (e.g. standalone software, active diagnostic)",
-                    },
-                    "applicable_rules_hint": {
-                        "type": "string",
-                        "description": "Comma-separated list of Annex VIII rules likely engaged (e.g. 'RULE_11, RULE_22')",
-                    },
+        "name": "run_regulatory_search",
+        "description": (
+            "Retrieve regulatory sources from EUR-Lex, MDCG guidance, "
+            "CJEU rulings, EUDAMED, Borderline Manual, and Team-NB. "
+            "Returns verbatim Annex VIII rule texts and relevant guidance."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": [
+                "device_description",
+                "intended_purpose",
+                "device_type",
+                "applicable_rules_hint",
+            ],
+            "properties": {
+                "device_description": {
+                    "type": "string",
+                    "description": "Plain-language description of the device",
                 },
-                "additionalProperties": False,
+                "intended_purpose": {
+                    "type": "string",
+                    "description": "The device's intended medical purpose",
+                },
+                "device_type": {
+                    "type": "string",
+                    "description": "Device type category (e.g. standalone software, active diagnostic)",
+                },
+                "applicable_rules_hint": {
+                    "type": "string",
+                    "description": "Comma-separated list of Annex VIII rules likely engaged (e.g. 'RULE_11, RULE_22')",
+                },
             },
+            "additionalProperties": False,
         },
     },
     {
         "type": "function",
-        "function": {
-            "name": "run_comparator_engine",
-            "description": (
-                "Search for and rank 3-4 comparable MDR-certified devices "
-                "using the multi-dimensional similarity engine. Uses web search "
-                "to retrieve comparator evidence."
-            ),
-            "parameters": {
-                "type": "object",
-                "required": [
-                    "device_description",
-                    "intended_purpose",
-                    "device_type",
-                    "rule_engagement_profile",
-                    "consequence_severity",
-                    "user_type",
-                    "use_environment",
-                ],
-                "properties": {
-                    "device_description": {
-                        "type": "string",
-                        "description": "Plain-language description of the device",
-                    },
-                    "intended_purpose": {
-                        "type": "string",
-                        "description": "The device's intended medical purpose",
-                    },
-                    "device_type": {
-                        "type": "string",
-                        "description": "Device type category",
-                    },
-                    "rule_engagement_profile": {
-                        "type": "string",
-                        "description": "Rule engagement signature (e.g. RULE_11_FIRST_PARAGRAPH_SERIOUS_DETERIORATION)",
-                    },
-                    "consequence_severity": {
-                        "type": "string",
-                        "description": "Consequence-chain severity tier from the rule assessment",
-                    },
-                    "user_type": {
-                        "type": "string",
-                        "description": "Intended user (lay_user, healthcare_professional, etc.)",
-                    },
-                    "use_environment": {
-                        "type": "string",
-                        "description": "Use setting (home, clinic, hospital, etc.)",
-                    },
+        "name": "run_comparator_engine",
+        "description": (
+            "Search for and rank 3-4 comparable MDR-certified devices "
+            "using the multi-dimensional similarity engine. Uses web search "
+            "to retrieve comparator evidence."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": [
+                "device_description",
+                "intended_purpose",
+                "device_type",
+                "rule_engagement_profile",
+                "consequence_severity",
+                "user_type",
+                "use_environment",
+            ],
+            "properties": {
+                "device_description": {
+                    "type": "string",
+                    "description": "Plain-language description of the device",
                 },
-                "additionalProperties": False,
+                "intended_purpose": {
+                    "type": "string",
+                    "description": "The device's intended medical purpose",
+                },
+                "device_type": {
+                    "type": "string",
+                    "description": "Device type category",
+                },
+                "rule_engagement_profile": {
+                    "type": "string",
+                    "description": "Rule engagement signature (e.g. RULE_11_FIRST_PARAGRAPH_SERIOUS_DETERIORATION)",
+                },
+                "consequence_severity": {
+                    "type": "string",
+                    "description": "Consequence-chain severity tier from the rule assessment",
+                },
+                "user_type": {
+                    "type": "string",
+                    "description": "Intended user (lay_user, healthcare_professional, etc.)",
+                },
+                "use_environment": {
+                    "type": "string",
+                    "description": "Use setting (home, clinic, hospital, etc.)",
+                },
             },
+            "additionalProperties": False,
         },
     },
 ]
