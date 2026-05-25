@@ -1,0 +1,565 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment_concern_separation": "CONCERN SEPARATION DIRECTIVE. The model/agent runs this schema to produce a structured OUTCOME (a JSON document conforming to the schema). The application layer then renders the OUTCOME as a human-readable regulatory note. These are separate concerns. Producing the outcome is the model's job; rendering the outcome is the application's job. The end user must never see the schema, the raw JSON, or the field names. The user sees only the rendered regulatory note.",
+  "$comment_epistemological_framing": "EPISTEMOLOGICAL FRAMING DIRECTIVE. The schema produces a structured artifact that supports a qualified human reviewer in arriving at a defensible MDR classification determination. The schema does not produce the determination itself. MDR classification is a deliberative regulatory task with discrete legal consequences attached to class boundaries; it is not a computational task with a single correct answer that the substrate can converge on. The schema's role is to assemble the applicable rules with verbatim Annex VIII anchors retrieved from authoritative sources, surface the precedent landscape with explicit epistemological tier classification and verifiable source provenance via the companion similarity engine, flag interpretive uncertainties where probabilistic resolution would be inadequate, distinguish source authority from source applicability, and present the assembled analysis in a form the human reviewer can interrogate, accept, override, or refine. The reviewer is the legal interface to the regulatory framework under MDR Article 51. The schema supports that interface; it does not substitute for it.",
+  "$comment_source_hierarchy": "SOURCE HIERARCHY DIRECTIVE. The schema distinguishes four epistemological tiers of regulatory source. Tier 1 BINDING: the MDR text itself (Regulation (EU) 2017/745 Articles, Annexes, definitions) and CJEU rulings interpreting MDR provisions. Tier 2 AUTHORITATIVE_INTERPRETIVE: MDCG guidance documents (MDCG 2021-24 Rev.1 on classification, MDCG 2019-11 on software qualification, MDCG 2022-5 Rev.1 on device versus medicinal product borderline, others) and the Borderline and Classification Manual entries agreed under the Helsinki Procedure. Tier 3 PERSUASIVE: Team-NB position papers, National Competent Authority classification opinions outside the Helsinki Procedure, harmonised standards. Tier 4 OPERATIONAL_FACTUAL: EUDAMED registration entries, observed notified body practice for comparable devices, market precedent. Source authority is distinct from source applicability.",
+  "$comment_retrieval_architecture": "RETRIEVAL ARCHITECTURE DIRECTIVE. All regulatory sources cited in the analysis must be retrieved via web search at the time of analysis, with URLs and verbatim quotations recorded structurally. The substrate is prohibited from citing regulatory text from its parametric knowledge. Retrieval makes the currency claim defensible and the citation auditable.",
+  "$comment_companion_engine_invocation": "COMPANION ENGINE INVOCATION DIRECTIVE. Section 10 comparable_devices_assessed is populated by invocation of the mdr_comparable_devices_similarity_engine.json companion. The engine performs retrieval-anchored precedent ranking, scores candidates across regulatorily-meaningful dimensions, forces precedent weight reasoning and competing precedent acknowledgement, and surfaces precedent-landscape interpretive uncertainty for section 9. The companion engine is invoked after section 6 rule-by-rule assessment is complete and before section 9 interpretive_uncertainties_flagged is finalised. The engine's structured output is consumed by section 10 and section 9 as specified in the companion_files_referenced block. This invocation pattern addresses the precedent-weighting layer of substrate variance identified in v3 empirical testing by structuring the precedent selection as a search-score-rank process with transparent weights and forced acknowledgement of competing precedents rather than as a substrate recollection.",
+  "title": "MDRClassificationDeliberationSupport",
+  "description": "MDR Annex VIII classification analysis structured to support qualified human review and determination. Four top-level contracts precede the content sections. The display_contract declares the OUTCOME-versus-DISPLAY concern separation. The output_style_contract binds the model to plain-language regulatory voice. The deliberation_contract declares the deliberation-support framing. The retrieval_contract requires web search retrieval of all regulatory sources with URLs and verbatim quotations recorded structurally. The schema covers the eleven sections of the established regulatory note template, with the comparable_devices_assessed field populated by invocation of the mdr_comparable_devices_similarity_engine.json companion. Grammar-enforced at the sampling layer: every required field present, every enum constrained, every additionalProperties false, exactly twenty-two rule assessments, minLength on all substantive prose, structured retrieval provenance on every cited source, structured precedent ranking and competing precedents from the companion engine.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "display_contract",
+    "output_style_contract",
+    "deliberation_contract",
+    "retrieval_contract",
+    "companion_files_referenced",
+    "section_1_final_mdr_device_classification",
+    "section_2_primary_mdr_classification_rule",
+    "section_3_classification_rationale",
+    "section_4_device_parameter_checklist",
+    "section_5_parameter_deduction_traceability",
+    "section_6_rule_by_rule_assessment",
+    "section_7_applicable_rules",
+    "section_8_excluded_rules",
+    "section_9_rule_conflict_and_precedence_assessment",
+    "section_10_validation_against_mdr_annex_viii_and_mdcg_2021_24",
+    "section_11_validation_status"
+  ],
+  "properties": {
+    "display_contract": {
+      "type": "string",
+      "const": "Concern separation. This schema defines the structure of the model's output for audit and machine processing. The output of running this schema is the OUTCOME (the populated JSON). The OUTCOME is rendered by the application layer in the eleven-section regulatory note format for end-user display. The model produces the outcome; the application renders the outcome. The user never sees the schema, the raw JSON, or the field names. The user sees only the rendered regulatory note."
+    },
+    "output_style_contract": {
+      "type": "string",
+      "const": "All prose fields in this output are written in plain-language regulatory note voice. Complete sentences only. No bullet fragments inside prose strings. No markdown formatting characters inside prose strings. Annex VIII text and other regulatory text is quoted verbatim only inside structured verbatim objects, alongside the source URL and a retrieval confirmation; verbatim text is never produced from substrate parametric knowledge. All other prose is original, in the voice of a senior regulatory professional explaining the classification analysis to a colleague reviewing the work. Probabilistic resolution of contested interpretive questions is acknowledged as provisional rather than determinative. Source authority is distinguished from source applicability throughout."
+    },
+    "deliberation_contract": {
+      "type": "string",
+      "const": "Deliberation support. This schema produces a structured analysis intended to support a qualified human reviewer in arriving at a defensible MDR classification determination. The substrate that populates this schema does not produce the determination. The determination is a deliberative regulatory act that requires human professional judgment, accountability to the regulatory framework, and signed responsibility under MDR Article 51. The output of this schema is one input to that judgment, alongside the reviewer's domain expertise, the precedent the reviewer brings to the assessment, and any structured dialogue with the notified body. Classifications produced by this schema are provisional pending human review and are not conformity assessment submissions. Where the schema flags an interpretive uncertainty as load-bearing to classification, the human reviewer is required to resolve that uncertainty through professional deliberation before the classification can be treated as defensible."
+    },
+    "retrieval_contract": {
+      "type": "string",
+      "const": "Retrieval. All regulatory sources cited in this analysis have been retrieved via web search at the time of analysis. URLs and verbatim quotations are recorded structurally per source. Parametric quotation of regulatory text from substrate training data is prohibited because regulatory sources are updated frequently and parametric knowledge may be stale, and because parametric quotation is unverifiable by the human reviewer. The retrieval requirement applies to: the MDR text via EUR-Lex; MDCG guidance documents via the European Commission health portal; CJEU rulings via CURIA; the Borderline and Classification Manual via the European Commission; Team-NB position papers via team-nb.org; EUDAMED entries via the EUDAMED public portal; and any other source consulted. Where retrieval was attempted and failed, the failure is acknowledged explicitly in the source's retrieval_confirmation_prose field and reflected in the source_hierarchy_critique. Retrieval makes the currency claim defensible and the citation auditable by the qualified human reviewer."
+    },
+    "companion_files_referenced": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["comparable_devices_similarity_engine"],
+      "description": "Companion engine declarations. The v4 schema invokes companion files during the analysis pipeline; this block declares which companions are invoked, when, and how their outputs map into the schema's sections.",
+      "properties": {
+        "comparable_devices_similarity_engine": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["filename", "invocation_timing", "populates_fields", "engine_invocation_confirmation_prose"],
+          "properties": {
+            "filename": {
+              "type": "string",
+              "const": "mdr_comparable_devices_similarity_engine.json",
+              "description": "Filename of the companion engine. Const value; the engine filename is fixed."
+            },
+            "invocation_timing": {
+              "type": "string",
+              "const": "After section_6_rule_by_rule_assessment is complete and before section_9_interpretive_uncertainties_flagged is finalised. The engine consumes section_6 output as feature input and emits ranked precedent for section_10 consumption.",
+              "description": "When in the analysis pipeline the engine is invoked. Const value; the invocation timing is fixed by the schema's architecture."
+            },
+            "populates_fields": {
+              "type": "array",
+              "description": "Schema fields populated by the engine output",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "section_10.comparable_devices_assessed",
+                  "section_10.competing_precedents_acknowledged",
+                  "section_10.unavailable_comparators_acknowledged",
+                  "section_9.interpretive_uncertainties_flagged_precedent_applicability_entries"
+                ]
+              }
+            },
+            "engine_invocation_confirmation_prose": {
+              "type": "string",
+              "minLength": 60,
+              "description": "Plain-language confirmation that the engine was invoked during this analysis, with the candidate pool size discovered in phase 1, the pool size after phase 2 quality gate, the final selected match count, any backoff levels applied, and any halt conditions triggered. Where the engine was not invoked because no comparable devices were retrievable, records the substantive reason. Parametric fallback prohibited."
+            }
+          }
+        }
+      }
+    },
+    "section_1_final_mdr_device_classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provisional_class", "single_sentence_statement", "human_review_required"],
+      "properties": {
+        "provisional_class": {
+          "type": ["string", "null"],
+          "enum": ["I", "IIa", "IIb", "III", null]
+        },
+        "single_sentence_statement": {
+          "type": "string",
+          "minLength": 15
+        },
+        "human_review_required": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "section_2_primary_mdr_classification_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "sub_clause_description", "single_paragraph_statement"],
+      "properties": {
+        "rule": {
+          "type": ["string", "null"],
+          "enum": ["RULE_1","RULE_2","RULE_3","RULE_4","RULE_5","RULE_6","RULE_7","RULE_8","RULE_9","RULE_10","RULE_11","RULE_12","RULE_13","RULE_14","RULE_15","RULE_16","RULE_17","RULE_18","RULE_19","RULE_20","RULE_21","RULE_22", null]
+        },
+        "sub_clause_description": {
+          "type": "string",
+          "minLength": 10
+        },
+        "single_paragraph_statement": {
+          "type": "string",
+          "minLength": 80
+        }
+      }
+    },
+    "section_3_classification_rationale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["controlling_logic_prose", "annex_viii_text_verbatim", "consequence_assessment_prose", "inadmissible_inputs_rejected"],
+      "properties": {
+        "controlling_logic_prose": {
+          "type": "string",
+          "minLength": 250
+        },
+        "annex_viii_text_verbatim": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "source_url", "retrieval_confirmation_prose"],
+          "properties": {
+            "text": { "type": "string", "minLength": 80 },
+            "source_url": { "type": "string", "minLength": 10 },
+            "retrieval_confirmation_prose": { "type": "string", "minLength": 30 }
+          }
+        },
+        "consequence_assessment_prose": {
+          "type": "string",
+          "minLength": 200
+        },
+        "inadmissible_inputs_rejected": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["input_type", "input_value_quoted", "rejection_prose"],
+            "properties": {
+              "input_type": {
+                "type": "string",
+                "enum": [
+                  "deployer_asserted_classification",
+                  "prior_directive_classification_mdd",
+                  "foreign_jurisdiction_classification",
+                  "marketing_positioning",
+                  "comparator_claims_unverified",
+                  "non_authoritative_secondary_source",
+                  "other"
+                ]
+              },
+              "input_value_quoted": { "type": "string", "minLength": 5 },
+              "rejection_prose": { "type": "string", "minLength": 120 }
+            }
+          }
+        }
+      }
+    },
+    "section_4_device_parameter_checklist": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["user_stated", "logically_deduced", "not_provided"],
+      "properties": {
+        "user_stated": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["parameter_name", "value_prose"],
+            "properties": {
+              "parameter_name": { "type": "string", "minLength": 3 },
+              "value_prose": { "type": "string", "minLength": 5 }
+            }
+          }
+        },
+        "logically_deduced": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["parameter_name", "deduced_value", "deduction_prose", "interpretive_load_bearing"],
+            "properties": {
+              "parameter_name": { "type": "string", "minLength": 3 },
+              "deduced_value": { "type": "string", "minLength": 2 },
+              "deduction_prose": { "type": "string", "minLength": 60 },
+              "interpretive_load_bearing": { "type": "boolean" }
+            }
+          }
+        },
+        "not_provided": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["parameter_name", "impact_prose"],
+            "properties": {
+              "parameter_name": { "type": "string", "minLength": 3 },
+              "impact_prose": { "type": "string", "minLength": 40 }
+            }
+          }
+        }
+      }
+    },
+    "section_5_parameter_deduction_traceability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["traceability_prose", "precedent_sources_consulted"],
+      "properties": {
+        "traceability_prose": { "type": "string", "minLength": 150 },
+        "precedent_sources_consulted": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_identifier",
+              "epistemological_tier",
+              "currency",
+              "applicability_scope_prose",
+              "citation_prose",
+              "source_url",
+              "verbatim_quote",
+              "retrieval_confirmation_prose"
+            ],
+            "properties": {
+              "source_identifier": { "type": "string", "minLength": 5 },
+              "epistemological_tier": {
+                "type": "string",
+                "enum": ["BINDING", "AUTHORITATIVE_INTERPRETIVE", "PERSUASIVE", "OPERATIONAL_FACTUAL"]
+              },
+              "currency": {
+                "type": "string",
+                "enum": ["CURRENT", "SUPERSEDED", "UNDER_REVISION", "AMBIGUOUS_STATUS"]
+              },
+              "applicability_scope_prose": { "type": "string", "minLength": 80 },
+              "citation_prose": { "type": "string", "minLength": 50 },
+              "source_url": { "type": "string", "minLength": 10 },
+              "verbatim_quote": { "type": "string", "minLength": 30 },
+              "retrieval_confirmation_prose": { "type": "string", "minLength": 30 }
+            }
+          }
+        }
+      }
+    },
+    "section_6_rule_by_rule_assessment": {
+      "type": "array",
+      "minItems": 22,
+      "maxItems": 22,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule", "applicability", "annex_viii_wording_verbatim", "assessment_prose", "resulting_class_if_applicable"],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "enum": ["RULE_1","RULE_2","RULE_3","RULE_4","RULE_5","RULE_6","RULE_7","RULE_8","RULE_9","RULE_10","RULE_11","RULE_12","RULE_13","RULE_14","RULE_15","RULE_16","RULE_17","RULE_18","RULE_19","RULE_20","RULE_21","RULE_22"]
+          },
+          "applicability": {
+            "type": "string",
+            "enum": ["APPLICABLE", "NOT_APPLICABLE", "INDETERMINATE"]
+          },
+          "annex_viii_wording_verbatim": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text", "source_url", "retrieval_confirmation_prose"],
+            "properties": {
+              "text": { "type": "string", "minLength": 30 },
+              "source_url": { "type": "string", "minLength": 10 },
+              "retrieval_confirmation_prose": { "type": "string", "minLength": 30 }
+            }
+          },
+          "assessment_prose": { "type": "string", "minLength": 40 },
+          "resulting_class_if_applicable": {
+            "type": ["string", "null"],
+            "enum": ["I", "IIa", "IIb", "III", null]
+          }
+        }
+      }
+    },
+    "section_7_applicable_rules": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["RULE_1","RULE_2","RULE_3","RULE_4","RULE_5","RULE_6","RULE_7","RULE_8","RULE_9","RULE_10","RULE_11","RULE_12","RULE_13","RULE_14","RULE_15","RULE_16","RULE_17","RULE_18","RULE_19","RULE_20","RULE_21","RULE_22"]
+      }
+    },
+    "section_8_excluded_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["excluded_rules_prose"],
+      "properties": {
+        "excluded_rules_prose": { "type": "string", "minLength": 150 }
+      }
+    },
+    "section_9_rule_conflict_and_precedence_assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["multiple_rules_engaged", "section_3_5_invoked", "precedence_prose", "interpretive_uncertainties_flagged"],
+      "properties": {
+        "multiple_rules_engaged": { "type": "boolean" },
+        "section_3_5_invoked": { "type": "boolean" },
+        "precedence_prose": { "type": "string", "minLength": 100 },
+        "interpretive_uncertainties_flagged": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["uncertainty_type", "load_bearing_to_classification", "substrate_provisional_position_prose", "human_deliberation_rationale_prose"],
+            "properties": {
+              "uncertainty_type": {
+                "type": "string",
+                "enum": [
+                  "CONSEQUENCE_THRESHOLD",
+                  "MODE_OF_ACTION",
+                  "INTENDED_PURPOSE_SCOPE",
+                  "QUALIFICATION_BOUNDARY",
+                  "RULE_SUB_CLAUSE_SELECTION",
+                  "PRECEDENT_APPLICABILITY",
+                  "BORDERLINE_DEVICE_VERSUS_MEDICINAL_PRODUCT",
+                  "OTHER"
+                ]
+              },
+              "load_bearing_to_classification": { "type": "boolean" },
+              "substrate_provisional_position_prose": { "type": "string", "minLength": 100 },
+              "human_deliberation_rationale_prose": { "type": "string", "minLength": 100 }
+            }
+          }
+        }
+      }
+    },
+    "section_10_validation_against_mdr_annex_viii_and_mdcg_2021_24": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validation_checks",
+        "validation_summary_prose",
+        "comparable_devices_assessed",
+        "competing_precedents_acknowledged",
+        "unavailable_comparators_acknowledged",
+        "source_hierarchy_critique_prose"
+      ],
+      "properties": {
+        "validation_checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "all_22_rules_evaluated",
+            "no_higher_risk_rule_missed",
+            "exclusions_justified",
+            "deductions_traceable",
+            "precedence_correctly_applied",
+            "mdcg_did_not_override_annex_viii",
+            "inadmissible_inputs_set_aside",
+            "interpretive_uncertainties_surfaced_for_human_review",
+            "all_sources_retrieved_via_web_search",
+            "comparable_devices_engine_invoked",
+            "competing_precedents_acknowledged_where_applicable"
+          ],
+          "properties": {
+            "all_22_rules_evaluated": { "type": "boolean" },
+            "no_higher_risk_rule_missed": { "type": "boolean" },
+            "exclusions_justified": { "type": "boolean" },
+            "deductions_traceable": { "type": "boolean" },
+            "precedence_correctly_applied": { "type": "boolean" },
+            "mdcg_did_not_override_annex_viii": { "type": "boolean" },
+            "inadmissible_inputs_set_aside": { "type": "boolean" },
+            "interpretive_uncertainties_surfaced_for_human_review": { "type": "boolean" },
+            "all_sources_retrieved_via_web_search": { "type": "boolean" },
+            "comparable_devices_engine_invoked": {
+              "type": "boolean",
+              "description": "True if mdr_comparable_devices_similarity_engine.json was invoked during the analysis pipeline and its output populates comparable_devices_assessed, competing_precedents_acknowledged, and unavailable_comparators_acknowledged. False if the engine was not invoked because no comparable devices were retrievable (in which case the substantive reason is recorded in companion_files_referenced.comparable_devices_similarity_engine.engine_invocation_confirmation_prose)."
+            },
+            "competing_precedents_acknowledged_where_applicable": {
+              "type": "boolean",
+              "description": "True if competing precedents pointing in different classification directions were acknowledged where the engine identified them, OR the engine identified no qualifying competing precedents (above 0.60 similarity, different classification direction). False if competing precedents existed but were not surfaced; this would be a contract violation."
+            }
+          }
+        },
+        "validation_summary_prose": { "type": "string", "minLength": 150 },
+        "comparable_devices_assessed": {
+          "type": "array",
+          "description": "Comparable devices selected by the mdr_comparable_devices_similarity_engine.json companion as the top 3-4 ranked precedents on the present fact pattern. Each entry carries the engine's similarity score, the dimensions that drove the score, the engine's precedent weight reasoning, the limits of transfer reasoning, the comparator's retrieval URL, and the comparator's intended purpose and classification rationale verbatim where retrievable. Empty array only if the engine could not retrieve any qualifying comparators, in which case the substantive reason is recorded in unavailable_comparators_acknowledged.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "device_identifier",
+              "regulatory_status",
+              "similarity_score_final",
+              "match_quality_rating",
+              "similarity_drivers_prose",
+              "precedent_weight_reasoning_prose",
+              "transfers_reasoning_to_present_prose",
+              "limits_of_transfer_prose",
+              "candidate_url",
+              "intended_purpose_verbatim_quote",
+              "intended_purpose_quote_url"
+            ],
+            "properties": {
+              "device_identifier": {
+                "type": "string",
+                "minLength": 3,
+                "description": "Device identifier as recorded in the retrieved source"
+              },
+              "regulatory_status": {
+                "type": "string",
+                "minLength": 5,
+                "description": "MDR class, certifying notified body, date of certification, EUDAMED entry status; for guidance worked examples, the guidance document and section reference; for CJEU rulings, the case identifier"
+              },
+              "similarity_score_final": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Final similarity score from the engine after epistemological tier modifier"
+              },
+              "match_quality_rating": {
+                "type": "string",
+                "enum": ["excellent", "good", "moderate", "poor"],
+                "description": "Match quality from the engine's match_quality_thresholds"
+              },
+              "similarity_drivers_prose": {
+                "type": "string",
+                "minLength": 80,
+                "description": "Plain-language paragraph articulating which dimensions of the engine's scoring drove the similarity (rule engagement profile match, intended purpose pattern match, consequence chain severity match, etc.)"
+              },
+              "precedent_weight_reasoning_prose": {
+                "type": "string",
+                "minLength": 120,
+                "description": "Plain-language paragraph from the engine's precedent_weight_reasoning output articulating why this comparator was weighted heavily and what specific evidence supports the weighting"
+              },
+              "transfers_reasoning_to_present_prose": {
+                "type": "string",
+                "minLength": 120,
+                "description": "Plain-language paragraph from the engine articulating what specifically transfers from the comparator's reasoning to the present device (rule selection, sub-clause selection, consequence tier, qualification reasoning, inadmissible-input rejection pattern)"
+              },
+              "limits_of_transfer_prose": {
+                "type": "string",
+                "minLength": 80,
+                "description": "Plain-language paragraph from the engine articulating where the comparator's precedent does NOT transfer to the present device. The honesty surface that prevents treating any comparator as fully controlling."
+              },
+              "candidate_url": {
+                "type": "string",
+                "minLength": 10,
+                "description": "URL where the comparator's regulatory status was retrieved"
+              },
+              "intended_purpose_verbatim_quote": {
+                "type": "string",
+                "minLength": 20,
+                "description": "Verbatim text of the comparator's intended purpose from the retrieved source. Anchors the similarity_drivers_prose to verifiable text."
+              },
+              "intended_purpose_quote_url": {
+                "type": "string",
+                "minLength": 10,
+                "description": "URL where the intended purpose verbatim text was retrieved"
+              }
+            }
+          }
+        },
+        "competing_precedents_acknowledged": {
+          "type": "array",
+          "description": "Competing precedents identified by the engine: comparators scoring at or above the moderate threshold (0.60) that reach a different classification conclusion from the top match. Surfaced for reviewer attention because these are where the reviewer's deliberation may overturn the substrate's provisional weighting. Empty array only if no qualifying competing precedents exist.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "competing_device_identifier",
+              "competing_device_url",
+              "competing_classification_reached",
+              "competing_reasoning_prose",
+              "why_not_top_match_prose"
+            ],
+            "properties": {
+              "competing_device_identifier": { "type": "string", "minLength": 3 },
+              "competing_device_url": { "type": "string", "minLength": 10 },
+              "competing_classification_reached": {
+                "type": "string",
+                "enum": ["I", "IIa", "IIb", "III"]
+              },
+              "competing_reasoning_prose": { "type": "string", "minLength": 120 },
+              "why_not_top_match_prose": { "type": "string", "minLength": 100 }
+            }
+          }
+        },
+        "unavailable_comparators_acknowledged": {
+          "type": "array",
+          "description": "Comparators that were considered but excluded from the engine's ranking because retrieval failed, coverage was insufficient, or the comparator was known to the substrate but no verifiable URL could be confirmed. Recorded rather than silently omitted, per the retrieval contract.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["comparator_identifier", "exclusion_reason", "exclusion_acknowledgement_prose"],
+            "properties": {
+              "comparator_identifier": { "type": "string", "minLength": 3 },
+              "exclusion_reason": {
+                "type": "string",
+                "enum": [
+                  "RETRIEVAL_FAILED_NO_PUBLIC_URL",
+                  "RETRIEVAL_FAILED_URL_INACTIVE",
+                  "FEATURE_COVERAGE_BELOW_MINIMUM",
+                  "EPISTEMOLOGICAL_TIER_BELOW_THRESHOLD",
+                  "KNOWN_TO_SUBSTRATE_BUT_NOT_VERIFIABLE"
+                ]
+              },
+              "exclusion_acknowledgement_prose": { "type": "string", "minLength": 80 }
+            }
+          }
+        },
+        "source_hierarchy_critique_prose": { "type": "string", "minLength": 200 }
+      }
+    },
+    "section_11_validation_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "closing_statement_prose", "missing_parameters_if_insufficient"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "SUPPORTS_HUMAN_DETERMINATION",
+            "SUPPORTS_HUMAN_DETERMINATION_WITH_DELIBERATION_FLAGS",
+            "INSUFFICIENT_INFORMATION",
+            "QUALIFICATION_BOUNDARY_REQUIRES_DETERMINATION",
+            "RETRIEVAL_FAILURE_BLOCKS_DEFENSIBLE_ANALYSIS",
+            "INSUFFICIENT_COMPARABLE_PRECEDENT"
+          ],
+          "description": "Status of the classification analysis under the deliberation-support framing. SUPPORTS_HUMAN_DETERMINATION: analysis complete, no load-bearing uncertainties, reviewer can proceed. SUPPORTS_HUMAN_DETERMINATION_WITH_DELIBERATION_FLAGS: analysis complete but load-bearing interpretive uncertainties require reviewer deliberation. INSUFFICIENT_INFORMATION: missing input parameters. QUALIFICATION_BOUNDARY_REQUIRES_DETERMINATION: device sits at qualification boundary. RETRIEVAL_FAILURE_BLOCKS_DEFENSIBLE_ANALYSIS: required authoritative sources could not be retrieved. INSUFFICIENT_COMPARABLE_PRECEDENT: the companion engine returned fewer than 2 qualifying comparators after all backoff levels; the analysis can proceed on rule text and guidance alone but the reviewer should be aware that precedent triangulation is unavailable."
+        },
+        "closing_statement_prose": { "type": "string", "minLength": 40 },
+        "missing_parameters_if_insufficient": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["parameter_name", "reason", "clarification_needed_prose"],
+            "properties": {
+              "parameter_name": { "type": "string", "minLength": 3 },
+              "reason": {
+                "type": "string",
+                "enum": ["MISSING", "AMBIGUOUS", "INTERNALLY_INCONSISTENT", "MULTIPLE_PLAUSIBLE_INTERPRETATIONS"]
+              },
+              "clarification_needed_prose": { "type": "string", "minLength": 30 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

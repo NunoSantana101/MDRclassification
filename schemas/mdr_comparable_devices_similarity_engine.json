@@ -1,0 +1,742 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0_mdr_precedent_similarity",
+  "schema_name": "mdr_comparable_devices_similarity_engine.json",
+  "description": "Multi-dimensional similarity and ranking engine for MDR Annex VIII comparable-device precedent. Identifies 3-4 most comparable MDR-certified or CJEU/MDCG-precedented devices for any present classification fact pattern through retrieval-anchored constraint-based matching. Companion to MDR_classification_schema_v4.json; populates the section_10.comparable_devices_assessed field with ranked, scored, retrieval-verified precedent.",
+  "created_on": "2026-05-25",
+  "last_updated": "2026-05-25",
+  "size_estimate": "~75KB",
+  "companion_to": "MDR_classification_schema_v4.json",
+  "populates_field": "section_10.comparable_devices_assessed",
+  "invocation_pattern": "Called by the v4 schema during section_10 evaluation, after section_6 rule-by-rule assessment is complete and before section_9 interpretive_uncertainties_flagged is finalised. Output is consumed as ranked precedent input to the comparable_devices_assessed array, with the engine's match_quality_rating, precedent_weight_reasoning, and competing_precedents_acknowledged fields mapped into the v4 schema's required prose fields.",
+  "$comment_concern_separation": "The engine produces a structured ranking OUTCOME (JSON conforming to this schema). The v4 schema consumes the outcome and renders it into the regulatory note's comparable_devices_assessed section. The end user never sees this engine's output directly; they see the v4 schema's rendered note. The engine is an upstream computational component of the v4 schema's content pipeline.",
+  "$comment_deliberation_framing": "This engine ranks comparable devices to support a qualified human reviewer's deliberation on precedent applicability. The engine does not determine which precedent controls the present classification. The reviewer makes that determination. The engine's role is to assemble the precedent landscape with retrieval-anchored evidence, score the candidates along regulatorily-meaningful dimensions, force acknowledgement of competing precedents pointing in different directions, and surface the residual interpretive uncertainty for the reviewer's professional judgment.",
+  "$comment_retrieval_architecture": "Every comparator identified by this engine must be retrieved via web search at the time of analysis, with at minimum a public URL (EUDAMED entry, notified body certificate database, MDCG worked example reference, CJEU case URL, Borderline Manual entry URL, manufacturer regulatory page, or peer-reviewed publication URL) recorded structurally per candidate. Parametric recall of comparator devices from substrate training data is prohibited. Where a comparator is known to the substrate but no retrievable URL can be confirmed, the comparator is excluded from the ranking and recorded in the unavailable_comparators_acknowledged field instead. The retrieval requirement is structurally enforced through required URL fields per candidate.",
+  "$comment_precedent_weighting": "The engine addresses the precedent-weighting layer of substrate variance identified in the v3 three-run empirical evidence. Where two retrieved precedents support different classification readings, the engine forces explicit reasoning about which precedent weighs more heavily on the present fact pattern and explicit acknowledgement of the competing precedent. The reasoning is recorded structurally so the human reviewer can interrogate the weighting logic rather than receiving a single substrate-selected precedent without the alternatives.",
+  "display_contract": "Concern separation. This engine produces a structured ranking output consumed by MDR_classification_schema_v4.json. The schema renders the output into the regulatory note's comparable_devices_assessed section. The end user does not see this engine's output directly; the user sees only the v4 schema's rendered note. The engine produces the ranking; the schema integrates the ranking; the application renders the integrated note.",
+  "output_style_contract": "All prose fields in the engine's output are written in plain-language regulatory voice. Complete sentences only. No bullet fragments inside prose strings. No markdown formatting characters inside prose strings. Verbatim regulatory text is quoted only inside structured verbatim objects carrying source URL and retrieval confirmation, consistent with the v4 schema's retrieval contract.",
+  "deliberation_contract": "The engine produces precedent ranking and weight reasoning to support a qualified human reviewer's determination of which precedents apply to the present classification fact pattern. The engine does not determine precedent applicability. The reviewer remains the accountable party under MDR Article 51. Precedent ranking is provisional pending reviewer assessment of the engine's weighting logic and the competing precedents the engine acknowledges.",
+  "retrieval_contract": "Every comparator in the engine's output is retrieved via web search at the time of analysis with a public URL recorded structurally. Verbatim quotations from the comparator's regulatory record carry their own source URLs and retrieval confirmations. Parametric recall of comparators from substrate training data is prohibited. Where retrieval fails, the failure is acknowledged in the unavailable_comparators_acknowledged field rather than substituted for by parametric inference.",
+  "context_mode": {
+    "description": "Selects the MDR device-type context to adjust feature extraction, discovery queries, and precedent extraction targets. Default is mdr_software_device. Switch to alternative modes for non-software devices or for IVDR analysis.",
+    "active_mode": "mdr_software_device",
+    "modes": {
+      "mdr_software_device": {
+        "description": "Standalone medical device software (MDSW) under MDR Article 2(1), Article 2(4), and Annex VIII Rule 11. Includes mobile applications, diagnostic-decision support software, monitoring software, and clinical-workflow software.",
+        "primary_rule_anchors": ["RULE_11"],
+        "secondary_rule_anchors": ["RULE_10", "RULE_22"],
+        "guidance_anchors": ["MDCG_2019_11", "MDCG_2021_24_REV1"],
+        "discovery_query_style": "MDR software classification, MDSW notified body certification, medical device software Rule 11 examples, EUDAMED software entries, MDCG 2019-11 worked examples, Borderline Manual software entries",
+        "extraction_focus": "notified body and certified class, EUDAMED entry, Rule 11 sub-clause applied, intended purpose framing, qualification basis under Article 2(1), consequence-severity reasoning where public, reclassification history from MDD",
+        "preferred_sources": [
+          "EUDAMED public portal",
+          "Notified body certificate databases (BSI, TUV SUD, TUV Rheinland, IMQ, DEKRA, MDC, etc.)",
+          "MDCG 2019-11 worked examples",
+          "MDCG 2021-24 Rev.1 worked examples",
+          "Borderline and Classification Manual V5 entries",
+          "Manufacturer regulatory pages",
+          "Peer-reviewed validation papers with regulatory status disclosed"
+        ]
+      },
+      "mdr_active_diagnostic_device": {
+        "description": "Active medical devices for diagnosis or monitoring under Annex VIII Rule 10 that are not standalone software. Includes physiological monitors, imaging devices, diagnostic instruments.",
+        "primary_rule_anchors": ["RULE_10"],
+        "secondary_rule_anchors": ["RULE_11", "RULE_22"],
+        "guidance_anchors": ["MDCG_2021_24_REV1"],
+        "discovery_query_style": "MDR Rule 10 active diagnostic device certification, physiological monitor classification, imaging device MDR class",
+        "extraction_focus": "active device characterisation, vital physiological parameter monitoring scope, immediate-danger sub-clause engagement, hardware versus software boundary"
+      },
+      "mdr_implantable_device": {
+        "description": "Implantable devices under Annex VIII Rule 8 and active implantable medical devices. Includes cardiac implants, neurostimulators, orthopaedic implants.",
+        "primary_rule_anchors": ["RULE_8"],
+        "secondary_rule_anchors": ["RULE_6", "RULE_7", "RULE_22"],
+        "guidance_anchors": ["MDCG_2021_24_REV1"],
+        "discovery_query_style": "MDR Rule 8 implantable device certification, active implantable medical device class III examples",
+        "extraction_focus": "implant duration, surgically invasive classification, energy delivery, closed-loop diagnostic-therapeutic integration"
+      },
+      "mdr_substance_based_device": {
+        "description": "Substance-based devices and devices incorporating medicinal substances under Annex VIII Rules 14, 21, and the device-versus-medicinal-product borderline.",
+        "primary_rule_anchors": ["RULE_14", "RULE_21"],
+        "secondary_rule_anchors": ["RULE_3", "RULE_20"],
+        "guidance_anchors": ["MDCG_2022_5_REV1", "MDCG_2021_24_REV1"],
+        "case_law_anchors": ["CJEU_C_589_23"],
+        "discovery_query_style": "MDR substance-based device classification, device medicinal product borderline, mode of action pharmacological, Helsinki Procedure substance entries",
+        "extraction_focus": "principal mode of action (mechanical, pharmacological, immunological, metabolic), absorption profile, ancillary versus principal substance role"
+      },
+      "mdr_borderline_qualification": {
+        "description": "Devices at the qualification boundary: device versus medicinal product, device versus general consumer item, device versus Annex XVI non-medical product, device versus IVD.",
+        "primary_rule_anchors": [],
+        "secondary_rule_anchors": [],
+        "guidance_anchors": ["MDCG_2022_5_REV1", "MDCG_2019_11"],
+        "case_law_anchors": ["CJEU_C_329_16", "CJEU_C_589_23"],
+        "discovery_query_style": "MDR qualification boundary, medical device versus medicinal product CJEU, MDCG borderline qualification opinion, Annex XVI non-medical purpose",
+        "extraction_focus": "qualification reasoning, intended purpose objective assessment, manufacturer framing setting aside, CJEU functional test application"
+      },
+      "ivdr_device": {
+        "description": "In vitro diagnostic devices under IVDR (Regulation (EU) 2017/746) Annex VIII classification rules. Reserved for IVDR analysis; outside the primary scope of this engine but included as a context mode for completeness.",
+        "primary_rule_anchors": ["IVDR_RULE_1", "IVDR_RULE_2", "IVDR_RULE_3", "IVDR_RULE_4", "IVDR_RULE_5", "IVDR_RULE_6", "IVDR_RULE_7"],
+        "guidance_anchors": ["MDCG_2020_16", "MDCG_2024_11"],
+        "discovery_query_style": "IVDR classification, IVD risk class B C D certification, companion diagnostic IVDR class"
+      }
+    },
+    "usage": "Set active_mode before execution. The search_execution_protocol and precedent_extraction_schema adapt query templates and target metrics based on active_mode."
+  },
+  "taxonomy_anchoring": {
+    "description": "This engine extends the MDR_classification_schema_v4 source hierarchy and the established epistemological tier framework rather than replacing them.",
+    "primary_constraint_source": "MDR_classification_schema_v4.json source hierarchy tiers (BINDING, AUTHORITATIVE_INTERPRETIVE, PERSUASIVE, OPERATIONAL_FACTUAL)",
+    "constraint_detection": "Use the v4 schema's section_5 precedent_sources_consulted output as the regulatory anchor set for similarity assessment",
+    "rule_alignment_source": "Section_6 rule_by_rule_assessment from the v4 schema output identifies which rules engage on the present fact pattern; the engine scores comparators on alignment with this rule engagement profile"
+  },
+  "feature_extraction_schema": {
+    "description": "Extract these features from the present device under classification and from each candidate comparator for similarity scoring",
+    "extraction_priority": "Rule engagement profile > Intended purpose pattern > Qualification basis > Functional action > Consequence chain > User and setting",
+    "rule_engagement_profile": {
+      "source": "v4 schema section_6 rule_by_rule_assessment output for the present device; for candidates, retrieved notified body certificate or public regulatory record",
+      "extract": {
+        "applicable_rules": {
+          "method": "Array of Annex VIII rule identifiers determined APPLICABLE",
+          "examples": [
+            ["RULE_11"],
+            ["RULE_10", "RULE_11"],
+            ["RULE_8", "RULE_22"],
+            ["RULE_14", "RULE_21"]
+          ],
+          "format": "Array of RULE_X identifiers"
+        },
+        "primary_rule_and_sub_clause": {
+          "method": "The controlling rule and the sub-clause selected within it",
+          "format": "Object with rule (RULE_X) and sub_clause_identifier (free text describing the indent or paragraph)"
+        },
+        "rule_engagement_pattern_signature": {
+          "method": "Composite identifier capturing which rules engage and how",
+          "examples": [
+            "RULE_11_FIRST_PARAGRAPH_DEFAULT",
+            "RULE_11_FIRST_PARAGRAPH_SERIOUS_DETERIORATION",
+            "RULE_11_FIRST_PARAGRAPH_DEATH_OR_IRREVERSIBLE",
+            "RULE_11_SECOND_PARAGRAPH_VITAL_PARAMETER_IMMEDIATE_DANGER",
+            "RULE_11_THIRD_PARAGRAPH_RESIDUAL",
+            "RULE_22_CLOSED_LOOP_THERAPEUTIC_DIAGNOSTIC"
+          ]
+        }
+      },
+      "similarity_weight_reference": 0.30,
+      "similarity_weight_note": "DOCUMENTATION ONLY — the authoritative runtime weight is in similarity_scoring_algorithm.dimension_weights.rule_engagement_profile_match. Documentation-only mirror per the weight_governance pattern.",
+      "matching_logic": "Jaccard similarity on rule sets, plus exact-match bonus on the primary rule and sub-clause signature",
+      "rationale": "MOST IMPORTANT — comparators that engage the same Annex VIII rules and sub-clauses face the same regulatory analysis as the present device. Rule engagement is the structural backbone of comparability."
+    },
+    "intended_purpose_pattern": {
+      "extract_from": "Manufacturer's intended purpose statement, labelling, instructions for use, and validation framing",
+      "categories": [
+        "diagnostic_decision_support_lay_user",
+        "diagnostic_decision_support_healthcare_professional",
+        "monitoring_continuous_vital_parameter_clinical",
+        "monitoring_continuous_vital_parameter_consumer",
+        "monitoring_episodic_alert_based",
+        "therapeutic_action_closed_loop",
+        "therapeutic_action_open_loop",
+        "therapeutic_drug_delivery",
+        "image_analysis_diagnostic",
+        "image_analysis_screening",
+        "signal_analysis_diagnostic",
+        "signal_analysis_screening_alert",
+        "calculation_dosing",
+        "calculation_risk_score",
+        "record_keeping_administrative",
+        "education_information_only",
+        "wellness_lifestyle_non_medical",
+        "other_specify"
+      ],
+      "similarity_weight_reference": 0.18,
+      "similarity_weight_note": "DOCUMENTATION ONLY — authoritative weight is in similarity_scoring_algorithm.dimension_weights.intended_purpose_pattern_match",
+      "matching_logic": {
+        "exact_match": 1.0,
+        "adjacent_match": 0.6,
+        "distant_match": 0.0
+      },
+      "adjacent_groupings": {
+        "diagnostic_decision_support_cluster": [
+          "diagnostic_decision_support_lay_user",
+          "diagnostic_decision_support_healthcare_professional",
+          "signal_analysis_diagnostic",
+          "signal_analysis_screening_alert"
+        ],
+        "monitoring_cluster": [
+          "monitoring_continuous_vital_parameter_clinical",
+          "monitoring_continuous_vital_parameter_consumer",
+          "monitoring_episodic_alert_based"
+        ],
+        "imaging_cluster": [
+          "image_analysis_diagnostic",
+          "image_analysis_screening"
+        ],
+        "therapeutic_cluster": [
+          "therapeutic_action_closed_loop",
+          "therapeutic_action_open_loop",
+          "therapeutic_drug_delivery"
+        ]
+      },
+      "rationale": "Intended purpose pattern drives rule engagement and consequence-severity reasoning. Comparators with the same intended purpose pattern face the same Rule 11 sub-clause analysis."
+    },
+    "qualification_basis": {
+      "extract_from": "Manufacturer's intended purpose, claimed medical purpose, MDR Article 2(1) reasoning, MDCG 2019-11 worked example alignment",
+      "categories": [
+        "explicit_diagnostic_claim_clinical_reference_validation",
+        "explicit_monitoring_claim_clinical_setting",
+        "implicit_diagnostic_via_clinical_validation_against_wellness_framing",
+        "explicit_therapeutic_claim",
+        "general_information_no_medical_purpose",
+        "borderline_qualification_contested"
+      ],
+      "similarity_weight_reference": 0.12,
+      "similarity_weight_note": "DOCUMENTATION ONLY — authoritative weight is in similarity_scoring_algorithm.dimension_weights.qualification_basis_match",
+      "matching_logic": "Exact match 1.0, contested-to-explicit 0.3 (different qualification reasoning even if classification ends similarly), no match 0.0",
+      "rationale": "Devices with similar qualification reasoning surface similar inadmissible-input patterns (wellness framing setting aside, MDD prior non-portability, foreign-jurisdiction non-portability). Qualification basis affects which precedent reasoning transfers."
+    },
+    "functional_action_pattern": {
+      "extract_from": "Technical description of how the device performs its medical function",
+      "dimensions": {
+        "input_modality": {
+          "categories": [
+            "single_lead_ecg",
+            "multi_lead_ecg",
+            "ppg_signal",
+            "spo2_signal",
+            "blood_pressure_signal",
+            "temperature_signal",
+            "image_2d_visible",
+            "image_2d_xray",
+            "image_2d_mri",
+            "image_2d_ct",
+            "image_2d_ultrasound",
+            "image_3d_volumetric",
+            "histology_image",
+            "lab_value_input",
+            "patient_reported_outcome",
+            "wearable_motion_sensor",
+            "other_specify"
+          ],
+          "weight": 0.4
+        },
+        "processing_type": {
+          "categories": [
+            "pattern_recognition_rule_based",
+            "pattern_recognition_ml_locked",
+            "pattern_recognition_ml_adaptive",
+            "calculation_deterministic_formula",
+            "statistical_risk_model",
+            "image_segmentation_classification",
+            "natural_language_processing",
+            "other_specify"
+          ],
+          "weight": 0.3
+        },
+        "output_type": {
+          "categories": [
+            "binary_alert_yes_no",
+            "ordinal_risk_tier",
+            "continuous_probability_score",
+            "annotated_image_or_signal",
+            "quantitative_clinical_value",
+            "narrative_clinical_interpretation",
+            "treatment_recommendation",
+            "other_specify"
+          ],
+          "weight": 0.3
+        }
+      },
+      "similarity_weight_reference": 0.10,
+      "similarity_weight_note": "DOCUMENTATION ONLY — authoritative weight is in similarity_scoring_algorithm.dimension_weights.functional_action_pattern_match",
+      "matching_logic": "Weighted average of dimension matches",
+      "rationale": "Functional action pattern affects how the device's output integrates into clinical decision-making, which in turn affects Rule 11 sub-clause selection and consequence-severity reasoning."
+    },
+    "consequence_chain_severity": {
+      "extract_from": "Foreseeable harm chain from erroneous output, MDR Annex VIII Rule 11 consequence-tier reasoning",
+      "categories": [
+        "no_material_harm",
+        "transient_inconvenience",
+        "unnecessary_clinical_workup",
+        "delayed_diagnosis_recoverable",
+        "delayed_diagnosis_potentially_serious",
+        "delayed_treatment_serious_deterioration",
+        "delayed_treatment_irreversible_or_death",
+        "direct_harm_serious_deterioration",
+        "direct_harm_irreversible_or_death"
+      ],
+      "similarity_weight_reference": 0.12,
+      "similarity_weight_note": "DOCUMENTATION ONLY — authoritative weight is in similarity_scoring_algorithm.dimension_weights.consequence_chain_severity_match",
+      "matching_logic": {
+        "exact_match": 1.0,
+        "adjacent_tier": 0.5,
+        "distant_tier": 0.0
+      },
+      "rationale": "Consequence-severity tier is the load-bearing question in Rule 11 first paragraph (IIa/IIb/III boundary). Comparators with the same consequence tier face the same elevation question and provide the most directly applicable precedent."
+    },
+    "user_population_and_setting": {
+      "extract_from": "Intended user description, use environment",
+      "dimensions": {
+        "user_type": {
+          "categories": [
+            "lay_user_general_public",
+            "lay_user_patient_with_known_condition",
+            "healthcare_professional_general_practice",
+            "healthcare_professional_specialist",
+            "healthcare_professional_intensive_care",
+            "mixed_lay_and_professional"
+          ],
+          "weight": 0.5
+        },
+        "use_environment": {
+          "categories": [
+            "home_lifestyle",
+            "home_clinical_supervised",
+            "primary_care_clinic",
+            "hospital_ward",
+            "intensive_care_unit",
+            "emergency_department",
+            "operating_theatre",
+            "ambulance_field"
+          ],
+          "weight": 0.5
+        }
+      },
+      "similarity_weight_reference": 0.08,
+      "similarity_weight_note": "DOCUMENTATION ONLY — authoritative weight is in similarity_scoring_algorithm.dimension_weights.user_population_and_setting_match",
+      "matching_logic": "Weighted dimension similarity",
+      "rationale": "User type and use environment affect the immediate-danger sub-clause analysis in Rule 11 second paragraph and the labelling and instructions-for-use requirements under MDR Annex I."
+    },
+    "guidance_worked_example_alignment": {
+      "extract_from": "Direct match against worked examples in MDCG guidance documents and Borderline Manual entries",
+      "dimensions": {
+        "mdcg_2019_11_worked_example_match": {
+          "categories": [
+            "direct_match_specific_worked_example",
+            "close_analogue_to_worked_example",
+            "general_alignment_with_guidance_principles",
+            "no_relevant_worked_example",
+            "guidance_silent_on_this_pattern"
+          ],
+          "weight": 0.4
+        },
+        "mdcg_2021_24_worked_example_match": {
+          "categories": [
+            "direct_match_specific_worked_example",
+            "close_analogue_to_worked_example",
+            "general_alignment_with_guidance_principles",
+            "no_relevant_worked_example"
+          ],
+          "weight": 0.3
+        },
+        "borderline_manual_entry_match": {
+          "categories": [
+            "direct_helsinki_procedure_entry",
+            "close_analogue_helsinki_entry",
+            "no_helsinki_entry_identified"
+          ],
+          "weight": 0.3
+        }
+      },
+      "similarity_weight_reference": 0.10,
+      "similarity_weight_note": "DOCUMENTATION ONLY — authoritative weight is in similarity_scoring_algorithm.dimension_weights.guidance_worked_example_alignment_match",
+      "matching_logic": "Weighted dimension similarity; direct worked example match is the strongest single signal of comparability and is treated as near-controlling where present",
+      "rationale": "A direct match against an MDCG worked example or Helsinki Procedure entry provides the strongest available authoritative anchor short of a CJEU ruling. Comparators that share a worked example with the present device inherit the worked example's classification reasoning."
+    }
+  },
+  "similarity_scoring_algorithm": {
+    "description": "Weighted sum of per-dimension similarity functions (Jaccard for rule sets, weighted dimension averages for compound dimensions, categorical matching for atomic dimensions) normalised for missingness. Not cosine similarity. Single source of truth for runtime weights is dimension_weights below.",
+    "method": "weighted_composite_similarity",
+    "dimension_weights": {
+      "rule_engagement_profile_match": 0.30,
+      "intended_purpose_pattern_match": 0.18,
+      "consequence_chain_severity_match": 0.12,
+      "qualification_basis_match": 0.12,
+      "functional_action_pattern_match": 0.10,
+      "guidance_worked_example_alignment_match": 0.10,
+      "user_population_and_setting_match": 0.08
+    },
+    "total_weight_sum": 1.00,
+    "note": "Weights sum to 1.00. Where a dimension is not extractable for a given candidate, normalisation per the formula below adjusts for the missing dimension.",
+    "normalization_formula": {
+      "formula": "similarity = sum(w_i * s_i for i in present_dimensions) / sum(w_i for i in present_dimensions)",
+      "description": "Weighted average of dimension similarity scores, normalised by the sum of weights for dimensions that have extractable data for both the present device and the candidate.",
+      "variables": {
+        "w_i": "Weight for dimension i from dimension_weights above",
+        "s_i": "Similarity score for dimension i (0.0 to 1.0)",
+        "present_dimensions": "Set of dimensions for which both the present device and the candidate have extractable feature data"
+      },
+      "minimum_coverage_check": {
+        "description": "If too few dimensions are present, the similarity score is unreliable and the match is downgraded",
+        "minimum_weight_coverage": 0.60,
+        "formula": "sum(w_i for i in present_dimensions) / total_weight_sum >= 0.60",
+        "action_if_below": "Downgrade match_quality_rating by one tier (excellent to good, good to moderate, moderate to poor) and append warning prose: 'Similarity score based on limited dimensions; interpret with caution and consider eliciting additional candidate data before relying on this precedent.'"
+      }
+    },
+    "weight_governance": {
+      "single_source_of_truth": "dimension_weights (this block) is the ONLY authoritative source for scoring weights at runtime",
+      "feature_schema_references": "The similarity_weight_reference fields in feature_extraction_schema are documentation-only mirrors. They exist for readability and MUST NOT be consumed for scoring. If values diverge, dimension_weights governs.",
+      "maintenance_rule": "When updating weights, update dimension_weights FIRST, then optionally sync the _reference fields for consistency"
+    },
+    "rule_engagement_matching_logic": {
+      "description": "Most important dimension — rule engagement profile similarity",
+      "method": "weighted_jaccard_plus_signature_match",
+      "formula": "0.6 * jaccard(applicable_rules_set) + 0.4 * exact_match(rule_engagement_pattern_signature)",
+      "rationale": "Comparators that engage the same rule set AND the same sub-clause within the primary rule are the strongest precedent. Comparators that engage the same rule set but a different sub-clause are weaker precedent because they will surface different consequence-tier reasoning."
+    },
+    "epistemological_tier_modifier": {
+      "description": "Adjusts the final similarity score based on the epistemological tier of the comparator. A retrieved Borderline Manual entry (Tier 2 authoritative-interpretive) carries more weight than a retrieved EUDAMED entry of an arbitrary notified body certification (Tier 4 operational-factual) at the same raw similarity score.",
+      "modifier_table": {
+        "BINDING": 1.10,
+        "AUTHORITATIVE_INTERPRETIVE": 1.05,
+        "PERSUASIVE": 1.00,
+        "OPERATIONAL_FACTUAL": 0.95
+      },
+      "application_rule": "final_score = raw_similarity * epistemological_tier_modifier; clamped to [0.0, 1.0]",
+      "rationale": "A worked example from MDCG 2019-11 that matches the present fact pattern at raw similarity 0.85 is more authoritative than a notified body certification of a comparable consumer device at raw similarity 0.90. The modifier reflects the regulatorily relevant difference in source weight."
+    },
+    "scoring_process": {
+      "step1": "Extract features from present device using v4 schema section_4 and section_6 output",
+      "step2": "Execute discovery searches per active_mode to build candidate pool (10-25 candidates typical)",
+      "step3": "Extract features from each candidate via web search; drop candidates failing minimum_weight_coverage check",
+      "step4": "Calculate raw similarity score for each candidate using weighted formula",
+      "step5": "Apply epistemological_tier_modifier to produce final score",
+      "step6": "Rank candidates by final score",
+      "step7": "Select top 3-4 matches with diversity consideration",
+      "step8": "Generate precedent_weight_reasoning and competing_precedents_acknowledged outputs",
+      "step9": "Emit ranked_comparators output for consumption by v4 schema section_10"
+    },
+    "match_quality_thresholds": {
+      "boundary_rules": "Boundaries are inclusive-lower: excellent = [0.80, 1.0], good = [0.70, 0.80), moderate = [0.60, 0.70), poor = [0.0, 0.60). Evaluate top-down; first match wins.",
+      "excellent": {
+        "range": ">=0.80",
+        "interpretation": "Strong multi-dimensional precedent. The comparator is a near-controlling reference for the present classification. High confidence that the reasoning transfers, subject to source-applicability checks."
+      },
+      "good": {
+        "range": ">=0.70 and <0.80",
+        "interpretation": "Solid precedent. The comparator provides reasoned support for the present classification, with explicit source-applicability reasoning required."
+      },
+      "moderate": {
+        "range": ">=0.60 and <0.70",
+        "interpretation": "Acceptable precedent. The comparator informs the analysis but does not control it. Use with explicit uncertainty and acknowledge the differences."
+      },
+      "poor": {
+        "range": "<0.60",
+        "interpretation": "Below threshold. Exclude from primary precedent set. May be retained as supplementary context only if explicitly flagged in the rendered output."
+      }
+    },
+    "diversity_requirement": {
+      "description": "Avoid selecting 3-4 nearly identical comparators that produce redundant precedent rather than triangulating perspectives",
+      "method": "If top 3 matches all have similarity >0.90 to each other across rule_engagement_profile and intended_purpose_pattern, substitute the third match with the highest-scoring different-cluster candidate (different sub-clause engagement, different consequence-severity tier, or different epistemological tier).",
+      "rationale": "The reviewer benefits from precedent triangulation. Three near-identical EUDAMED entries from the same notified body for the same therapy area produce less deliberative value than two such entries plus one MDCG worked example or Helsinki Procedure entry on a slightly different fact pattern."
+    }
+  },
+  "search_execution_protocol": {
+    "description": "How to discover and evaluate candidate comparators under the retrieval contract",
+    "context_mode_note": "Query templates below default to mdr_software_device. When active_mode is different, adapt queries per the context_mode.modes[active_mode].discovery_query_style guidance.",
+    "phase1_discovery": {
+      "objective": "Build a candidate pool of potentially comparable MDR-certified devices and precedented fact patterns",
+      "query_templates": [
+        "{intended_purpose_pattern} MDR Rule 11 notified body certification",
+        "{functional_action_pattern} MDR class IIa IIb III",
+        "EUDAMED {intended_purpose_pattern} medical device software",
+        "MDCG 2019-11 worked example {intended_purpose_pattern}",
+        "Borderline Manual {device_category} Helsinki Procedure",
+        "{functional_action_pattern} CJEU classification ruling",
+        "notified body certificate {device_category} MDR class"
+      ],
+      "variable_substitution": "Use extracted features from the present device",
+      "expected_yield": "10-25 candidate comparators identified across the preferred source set",
+      "extraction": "Comparator identifier, regulatory status, retrievable URL, brief intended-purpose summary — just enough to proceed to phase 2",
+      "preferred_source_priority_order": [
+        "MDCG worked examples (highest priority due to authoritative-interpretive tier)",
+        "Borderline and Classification Manual entries (Helsinki Procedure agreements)",
+        "CJEU rulings on closely analogous fact patterns",
+        "Team-NB position papers addressing the device category",
+        "EUDAMED public entries (mandatory from 28 May 2026)",
+        "Notified body certificate databases",
+        "Peer-reviewed validation papers disclosing regulatory status",
+        "Manufacturer regulatory pages and product disclosures"
+      ],
+      "backoff_strategy": {
+        "description": "Progressive relaxation when viable candidates fall below minimum threshold after feature extraction",
+        "trigger": "viable_candidates_after_phase2 < minimum_viable_pool",
+        "minimum_viable_pool": 4,
+        "relaxation_sequence": [
+          {
+            "level": 1,
+            "action": "broaden_intended_purpose_pattern",
+            "description": "Accept adjacent_match intended purpose categories (0.6 similarity) instead of requiring exact_match",
+            "example": "If searching diagnostic_decision_support_lay_user, also accept signal_analysis_screening_alert"
+          },
+          {
+            "level": 2,
+            "action": "relax_user_population_setting",
+            "description": "Accept user_type and use_environment differences as a candidate-level note rather than as a search filter",
+            "example": "Healthcare-professional comparators may inform lay-user devices on Rule 11 sub-clause selection even if not on lay-use labelling requirements"
+          },
+          {
+            "level": 3,
+            "action": "expand_to_adjacent_rules",
+            "description": "Search comparators engaging adjacent rules (Rule 10 for Rule 11 software, Rule 22 for Rule 11 closed-loop)",
+            "never_relax": [
+              "rule_engagement_profile_match below 0.5",
+              "qualification_basis fundamental disagreement"
+            ],
+            "rationale": "Cross-rule comparators inform reasoning but do not substitute for same-rule precedent"
+          },
+          {
+            "level": 4,
+            "action": "accept_lower_coverage_candidates",
+            "description": "Reduce minimum_weight_coverage from 0.60 to 0.45, flagging affected candidates as 'limited_data' and downgrading match_quality_rating one tier"
+          }
+        ],
+        "halt_condition": "If after all relaxation levels viable_candidates < 2, flag as 'insufficient_comparators' and proceed without empirical precedent, recording the gap in the engine output's unavailable_comparators_acknowledged field. The v4 schema can still produce its analysis from rule text and guidance alone; precedent absence is acknowledged rather than fabricated."
+      }
+    },
+    "phase2_candidate_evaluation": {
+      "objective": "Retrieve enough information per candidate to score similarity",
+      "for_each_candidate": {
+        "queries": [
+          "{candidate_name} MDR classification notified body",
+          "{candidate_name} EUDAMED entry",
+          "{candidate_name} intended purpose regulatory documentation",
+          "{candidate_name} Rule 11 sub-clause OR Annex VIII rule"
+        ],
+        "extraction_target": ">=60% of feature dimensions with at least one URL",
+        "quality_gate": "If <60% features extractable OR no retrievable URL identified, drop candidate and try next. Parametric fallback prohibited."
+      }
+    },
+    "phase3_similarity_scoring": {
+      "objective": "Score all extractable candidates per the scoring algorithm",
+      "method": "Apply similarity_scoring_algorithm to each candidate with extracted features",
+      "output": "Ranked list with raw similarity scores and tier-modified final scores"
+    },
+    "phase4_top_match_selection": {
+      "objective": "Select 3-4 best matches for inclusion in v4 schema section_10",
+      "selection_logic": {
+        "primary": "Top 3 by final score (if all >= 0.60 threshold after tier modifier)",
+        "diversity": "If top 3 too similar across rule_engagement_profile and intended_purpose_pattern, substitute the third with the highest-scoring different-cluster candidate",
+        "fallback": "If <3 candidates meet threshold after backoff, record the insufficiency in unavailable_comparators_acknowledged and emit the available matches with explicit acknowledgement"
+      }
+    },
+    "phase5_precedent_evidence_extraction": {
+      "objective": "Retrieve detailed regulatory record per selected match for evidence-anchored citation in the v4 schema output",
+      "for_each_selected_match": {
+        "queries": [
+          "{match_name} EUDAMED entry full record",
+          "{match_name} notified body certificate identifier",
+          "{match_name} MDR conformity assessment route",
+          "{match_name} intended purpose verbatim from regulatory documentation",
+          "{match_name} classification rationale public record",
+          "{match_name} reclassification history MDD to MDR"
+        ],
+        "extraction_schema": "See precedent_extraction_schema section below",
+        "quality_threshold": "Must extract at least: candidate identifier, candidate URL, regulatory status with date, intended purpose summary, MDR class assigned. If any of these cannot be retrieved, drop the candidate from the final selection and elevate the next-ranked candidate."
+      }
+    }
+  },
+  "precedent_extraction_schema": {
+    "description": "What evidence to extract from each selected comparator for the v4 schema section_10 output",
+    "regulatory_status_evidence": {
+      "target_fields": {
+        "candidate_identifier": "Device name and manufacturer as recorded in the retrieved source",
+        "candidate_url": "Public URL where the regulatory status was retrieved",
+        "mdr_class_assigned": "Class I, IIa, IIb, or III as recorded; or null if not yet MDR-certified",
+        "certifying_notified_body": "Notified body identifier and four-digit code where known",
+        "certificate_date": "Date of MDR certification or EUDAMED registration",
+        "reclassification_history": "Prior MDD class and date of MDR reclassification where applicable; 'not applicable' for devices first certified under MDR"
+      },
+      "sources": "EUDAMED, notified body certificate databases, manufacturer regulatory pages",
+      "confidence_assessment": "High for EUDAMED entries; high for notified body certificate databases; medium for manufacturer pages; low for inferred status"
+    },
+    "intended_purpose_evidence": {
+      "target_fields": {
+        "intended_purpose_verbatim_quote": "Exact text of the intended purpose as recorded in the comparator's public regulatory documentation",
+        "intended_purpose_quote_url": "URL where the verbatim text was retrieved",
+        "intended_purpose_summary_prose": "Plain-language summary of the comparator's intended purpose for the v4 schema's similarity prose"
+      },
+      "sources": "EUDAMED intended purpose field, manufacturer instructions for use, regulatory submission summaries",
+      "confidence_assessment": "High for EUDAMED-recorded intended purpose; medium for manufacturer IFU; low for third-party summaries"
+    },
+    "classification_rationale_evidence": {
+      "target_fields": {
+        "rule_applied": "The Annex VIII rule applied to the comparator's classification, where publicly recorded",
+        "sub_clause_applied": "Sub-clause within the rule, where publicly recorded",
+        "classification_rationale_prose": "Public reasoning for the classification where available (notified body summary technical documentation assessment, MDCG worked example, Borderline Manual entry rationale, CJEU ruling reasoning)",
+        "rationale_url": "URL where the rationale was retrieved"
+      },
+      "sources": "MDCG worked example narratives, Helsinki Procedure entry rationales, CJEU ruling text, notified body summary technical documentation assessments where public, Team-NB position paper discussions",
+      "confidence_assessment": "High for CJEU rulings and Helsinki Procedure entries; high for MDCG worked examples; medium for notified body summaries; low for inferred rationales"
+    },
+    "applicability_to_present_evidence": {
+      "target_fields": {
+        "similarity_score_raw": "Raw similarity from scoring algorithm",
+        "similarity_score_tier_modified": "Final score after epistemological_tier_modifier",
+        "match_quality_rating": "excellent / good / moderate / poor per match_quality_thresholds",
+        "similarity_dimensions_present_array": "Array of dimensions that were extractable and contributed to the score",
+        "similarity_dimensions_absent_array": "Array of dimensions that were not extractable for this candidate"
+      },
+      "sources": "Computed from the engine's feature extraction and scoring",
+      "confidence_assessment": "Computed value; confidence reflected in the minimum_weight_coverage check and match_quality_rating"
+    }
+  },
+  "precedent_weight_reasoning": {
+    "description": "Forces explicit substrate articulation of which precedent the engine found most compelling on the present fact pattern and why. Addresses the precedent-weighting layer of substrate variance identified in v3 three-run empirical testing.",
+    "required_fields_per_top_match": {
+      "weight_reasoning_prose": {
+        "type": "string",
+        "minLength": 120,
+        "description": "Plain-language paragraph articulating why this comparator was scored highly on the present fact pattern. Cites the specific dimensions that drove the score (rule_engagement_profile_match, intended_purpose_pattern_match, consequence_chain_severity_match, etc.) and the specific evidence retrieved from the comparator that supports the dimension scores. Distinguishes source authority from source applicability per the v4 schema's source hierarchy critique pattern."
+      },
+      "transfers_reasoning_to_present": {
+        "type": "string",
+        "minLength": 120,
+        "description": "Plain-language paragraph articulating what specifically transfers from the comparator's classification reasoning to the present device. Is the transfer at the rule-selection level, the sub-clause-selection level, the consequence-tier level, the qualification-reasoning level, or the inadmissible-input rejection level? Where the transfer is partial, articulates which elements transfer and which do not."
+      },
+      "limits_of_transfer_prose": {
+        "type": "string",
+        "minLength": 80,
+        "description": "Plain-language paragraph articulating where the comparator's precedent does NOT transfer. What is different about the present fact pattern that limits the comparator's precedent value? This is the honesty surface that prevents the substrate from treating any comparator as fully controlling."
+      }
+    },
+    "rationale": "The v3 three-run empirical evidence demonstrated that variance at the precedent-weighting layer was the remaining substrate variance after retrieval anchoring. By requiring explicit reasoning about why a precedent was weighted heavily and what the limits of transfer are, the engine moves the precedent-weighting decision to a structurally visible surface where the human reviewer can interrogate it. The reviewer can disagree with the substrate's weighting; the substrate's weighting reasoning is no longer implicit."
+  },
+  "competing_precedents_acknowledgement": {
+    "description": "Forces explicit acknowledgement of comparators that score moderately or above but point in a different classification direction from the engine's top match. Addresses the failure mode where the substrate selects one precedent and silently ignores others that would support a different reading.",
+    "trigger_rule": "If any candidate scoring >= 0.60 reaches a different classification conclusion from the top match, that candidate must appear in competing_precedents_acknowledged",
+    "required_fields_per_competing_precedent": {
+      "competing_precedent_identifier": {
+        "type": "string",
+        "description": "Comparator identifier"
+      },
+      "competing_precedent_url": {
+        "type": "string",
+        "description": "URL where the competing precedent's regulatory status was retrieved"
+      },
+      "competing_classification_reached": {
+        "type": "string",
+        "enum": ["I", "IIa", "IIb", "III"],
+        "description": "The class the competing precedent was assigned"
+      },
+      "competing_reasoning_prose": {
+        "type": "string",
+        "minLength": 120,
+        "description": "Plain-language paragraph articulating the reasoning the competing precedent reflects (rule sub-clause selection, consequence-tier reasoning, qualification reasoning) that would, if applied to the present device, lead to a different classification"
+      },
+      "why_not_top_match_prose": {
+        "type": "string",
+        "minLength": 100,
+        "description": "Plain-language paragraph articulating why this competing precedent was not selected as the top match despite scoring above threshold. Cites the specific dimension differences that lowered its score below the selected top match, or the epistemological-tier modifier effect, or other identifiable reasons. Distinguishes 'lower similarity' from 'similar but pointing different direction', the latter being the more important case for reviewer attention."
+      }
+    },
+    "rationale": "A reviewer reading the engine output must see not only the precedent the substrate found most compelling but also the precedents that point in different directions. The competing precedents are where the reviewer's deliberation may overturn the substrate's provisional weighting. This surface is the architectural mechanism for ensuring the substrate cannot quietly select a favourable precedent and discard unfavourable ones."
+  },
+  "interpretive_uncertainty_surfacing": {
+    "description": "Where the engine identifies that the precedent landscape itself contains a load-bearing interpretive disagreement (multiple authoritative comparators reaching different conclusions on similar fact patterns), surfaces this for the v4 schema's section_9 interpretive_uncertainties_flagged array",
+    "trigger_conditions": [
+      "Two or more comparators in the top 4 with similarity scores above 0.70 reach different classifications",
+      "An MDCG worked example reaches one classification but operational notified body practice reaches another",
+      "A CJEU ruling addresses the qualification question but does not address the classification step, leaving the present analysis dependent on contested guidance interpretation",
+      "Helsinki Procedure entries are silent on the present fact pattern despite multiple closely analogous fact patterns being addressed"
+    ],
+    "output_to_v4_schema": {
+      "uncertainty_type_suggested": "PRECEDENT_APPLICABILITY",
+      "load_bearing_to_classification_recommendation": "True where the precedent disagreement maps onto the present classification's load-bearing question",
+      "substrate_provisional_position_anchor": "The engine's top match and weight reasoning becomes the v4 schema's substrate_provisional_position_prose",
+      "human_deliberation_rationale_anchor": "The competing_precedents_acknowledged entries become the v4 schema's human_deliberation_rationale_prose"
+    },
+    "rationale": "Precedent disagreement among authoritative sources is itself regulatorily meaningful evidence. The engine surfaces it rather than resolving it. The reviewer is the appropriate locus for resolving precedent disagreement among authoritative sources, supported by structured visibility into where the disagreement lies."
+  },
+  "unavailable_comparators_acknowledged": {
+    "description": "Records comparators that were considered but excluded because retrieval failed or coverage was insufficient. Prevents silent omission of relevant precedent.",
+    "required_fields_per_excluded_comparator": {
+      "comparator_identifier": {
+        "type": "string",
+        "description": "Comparator identifier or descriptor"
+      },
+      "exclusion_reason": {
+        "type": "string",
+        "enum": [
+          "RETRIEVAL_FAILED_NO_PUBLIC_URL",
+          "RETRIEVAL_FAILED_URL_INACTIVE",
+          "FEATURE_COVERAGE_BELOW_MINIMUM",
+          "EPISTEMOLOGICAL_TIER_BELOW_THRESHOLD",
+          "KNOWN_TO_SUBSTRATE_BUT_NOT_VERIFIABLE"
+        ],
+        "description": "Why the comparator was excluded. KNOWN_TO_SUBSTRATE_BUT_NOT_VERIFIABLE is the case where the substrate recalls a comparator from training data but cannot retrieve a public URL confirming it; the retrieval contract requires exclusion."
+      },
+      "exclusion_acknowledgement_prose": {
+        "type": "string",
+        "minLength": 80,
+        "description": "Plain-language acknowledgement of the exclusion. Notes whether the excluded comparator, if it had been retrievable, would likely have changed the ranking outcome. Where the answer is yes, recommends the reviewer attempt manual retrieval through alternative channels (notified body direct enquiry, Borderline Manual current edition, structured dialogue mechanism) before settling the analysis."
+      }
+    },
+    "rationale": "Silent omission of unverifiable comparators is a failure mode the retrieval contract is designed to prevent. Where the substrate cannot retrieve a comparator it has reason to think exists, the gap is recorded rather than papered over. The human reviewer's ability to pursue alternative retrieval channels is the appropriate remedy, not substrate fabrication."
+  },
+  "engine_output_specification": {
+    "description": "Structure of the engine's output for consumption by MDR_classification_schema_v4.json section_10",
+    "output_fields": {
+      "ranked_comparators": {
+        "type": "array",
+        "description": "Top 3-4 selected comparators with all precedent_extraction_schema fields populated and precedent_weight_reasoning fields populated"
+      },
+      "competing_precedents_acknowledged": {
+        "type": "array",
+        "description": "Competing precedents per the competing_precedents_acknowledgement section"
+      },
+      "interpretive_uncertainty_surfaced_to_v4": {
+        "type": "object",
+        "description": "Output for the v4 schema's section_9 interpretive_uncertainties_flagged array, where the engine identified precedent-landscape disagreement"
+      },
+      "unavailable_comparators_acknowledged": {
+        "type": "array",
+        "description": "Excluded comparators per the unavailable_comparators_acknowledged section"
+      },
+      "engine_diagnostic_summary": {
+        "type": "object",
+        "description": "Computational diagnostics: candidates discovered in phase 1, candidates passing phase 2 quality gate, backoff levels applied, minimum coverage check results, diversity substitution applied yes/no, final pool size, any halt conditions triggered"
+      }
+    }
+  },
+  "metadata": {
+    "engine_capabilities": {
+      "retrieval_required": true,
+      "deliberation_support_only": true,
+      "advisory_routing_ready": true,
+      "epistemological_tier_aware": true,
+      "competing_precedents_required": true
+    },
+    "version": "1.0_mdr_precedent_similarity",
+    "schema_version": "1.0_mdr_precedent_similarity",
+    "created_on": "2026-05-25",
+    "last_updated": "2026-05-25",
+    "description": "Multi-dimensional similarity and ranking engine for MDR Annex VIII comparable-device precedent. Companion to MDR_classification_schema_v4.json.",
+    "framework_contract": {
+      "primary_framework": "MDR_Annex_VIII_classification_with_MDCG_2019_11_and_MDCG_2021_24_Rev1_interpretive_guidance",
+      "secondary_frameworks": [
+        "Borderline_and_Classification_Manual_V5",
+        "MDCG_2022_5_Rev1_device_versus_medicinal_product",
+        "CJEU_case_law_C_329_16_and_C_589_23",
+        "Team_NB_position_papers"
+      ],
+      "framework_precedence": [
+        "MDR_text",
+        "CJEU_case_law",
+        "MDCG_guidance",
+        "Borderline_Manual",
+        "Team_NB_position_papers",
+        "notified_body_practice"
+      ]
+    }
+  },
+  "case_reasoning_contract": {
+    "mode": "retrieval_anchored_precedent_ranking_with_competing_precedent_surfacing",
+    "non_goal": "Not a determinative precedent selection mechanism; not a substitute for human reviewer deliberation on precedent applicability",
+    "usage_rule": "Use ranked precedent and weight reasoning to support reviewer deliberation, not as hard truth. Competing precedents must be acknowledged and the reviewer's role in resolving precedent disagreement preserved.",
+    "output_separation": [
+      "ranked_comparators",
+      "precedent_weight_reasoning",
+      "competing_precedents_acknowledged",
+      "interpretive_uncertainty_surfaced_to_v4",
+      "unavailable_comparators_acknowledged"
+    ]
+  }
+}
