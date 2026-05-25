@@ -261,7 +261,12 @@ Return ONLY the JSON. No markdown fences."""
             elif tc.name == "run_comparator_engine":
                 nano_outputs["comparator_raw"] = json.loads(tool_output)
 
-            tool_results_input.append(tc)
+            tool_results_input.append({
+                "type": "function_call",
+                "name": tc.name,
+                "call_id": tc.call_id,
+                "arguments": tc.arguments,
+            })
             tool_results_input.append(
                 {
                     "type": "function_call_output",
