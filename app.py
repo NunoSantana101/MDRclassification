@@ -27,7 +27,8 @@ st.caption(
 if not OPENAI_API_KEY:
     st.error(
         "OpenAI API key not found. Create a `.env` file with "
-        "`OPENAI_API_KEY=sk-...` or set the environment variable."
+        "`OPENAI_API_KEY=sk-...`, set the environment variable, "
+        "or add it to Streamlit Cloud Secrets."
     )
     st.stop()
 
