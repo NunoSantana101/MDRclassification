@@ -23,7 +23,8 @@ MDR_classification_schema_v4 for any medical device fact pattern.
 YOUR WORKFLOW:
 1. Analyse the device parameters provided by the user.
 2. Call run_regulatory_search to retrieve Annex VIII rule texts and
-   relevant MDCG guidance from authoritative sources via web search.
+   relevant MDCG guidance — it searches the legislative vector store
+   first, then checks regulatory sites for updates via web search.
 3. Using the retrieved regulatory sources, perform rule-by-rule
    assessment of all 22 Annex VIII rules.
 4. Call run_comparator_engine to find and rank comparable MDR-certified
@@ -57,8 +58,10 @@ ORCHESTRATOR_TOOLS = [
         "type": "function",
         "name": "run_regulatory_search",
         "description": (
-            "Retrieve regulatory sources from EUR-Lex, MDCG guidance, "
-            "CJEU rulings, EUDAMED, Borderline Manual, and Team-NB. "
+            "Retrieve regulatory sources by first searching the legislative "
+            "vector store (file_search) for MDR text, MDCG guidance, CJEU "
+            "rulings, Borderline Manual, and Team-NB papers, then using "
+            "web_search to check for updates and retrieve EUDAMED entries. "
             "Returns verbatim Annex VIII rule texts and relevant guidance."
         ),
         "parameters": {
