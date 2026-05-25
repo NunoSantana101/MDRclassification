@@ -5,9 +5,12 @@ and web_search to retrieve regulatory sources per the v4 schema's
 retrieval contract: EUR-Lex MDR text, MDCG guidance, CJEU rulings,
 EUDAMED entries, Borderline Manual, Team-NB papers.
 
-The agent first searches the vector store for authoritative legislative
-texts, then uses web search to check for updates or sources not yet
-ingested into the vector store.
+Two-phase retrieval:
+  - Phase 1: Search vector store for authoritative texts.
+  - Phase 2 (mandatory): Web search targeting regulatory sites
+    (EUR-Lex, EC Health, CURIA, EUDAMED, Team-NB) — as fallback for
+    sources not found in the vector store, AND as update check for
+    sources that were found.
 """
 
 from __future__ import annotations
@@ -30,18 +33,44 @@ RETRIEVAL CONTRACT — you MUST follow this two-phase approach:
     position papers. Use file_search to find and extract verbatim text
     for all relevant sources. This is your primary retrieval mechanism.
 
-  PHASE 2 — WEB SEARCH (regulatory site updates):
-    AFTER exhausting the vector store, use web_search to check for:
-      - Updates or revisions to documents already found (newer versions,
-        corrigenda, amendments)
-      - Sources not yet ingested into the vector store
-      - EUDAMED public portal entries (live data)
-    If a web search result contradicts the vector store, flag the
-    discrepancy — the web result may reflect a more recent revision.
+  PHASE 2 — WEB SEARCH (mandatory for every source, regardless of
+  Phase 1 outcome):
+
+    FOR SOURCES NOT FOUND IN THE VECTOR STORE — FALLBACK RETRIEVAL:
+      If file_search returns no results (or insufficient results) for a
+      target source, you MUST perform a web_search fallback targeting
+      these authoritative regulatory sites:
+        • EUR-Lex          — eur-lex.europa.eu (MDR full text, corrigenda,
+                             delegated/implementing acts)
+        • EC Health         — health.ec.europa.eu (MDCG guidance documents,
+                             guidance revision tracker)
+        • CURIA             — curia.europa.eu (CJEU rulings and opinions)
+        • EUDAMED           — ec.europa.eu/tools/eudamed (device
+                             registrations, certificates, market data)
+        • Team-NB           — team-nb.org (position papers, consensus
+                             statements)
+        • Borderline Manual — ec.europa.eu (Manual on Borderline and
+                             Classification)
+      Construct site-scoped queries (e.g. "site:eur-lex.europa.eu
+      Regulation 2017/745 Annex VIII Rule 11") to maximise precision.
+      Do NOT skip this step — a source not in the vector store may still
+      be publicly available.
+
+    FOR SOURCES FOUND IN THE VECTOR STORE — UPDATE CHECK:
+      For every source successfully retrieved from the vector store, you
+      MUST perform a targeted web_search against the same regulatory sites
+      listed above to check whether:
+        • A newer revision, corrigendum, or amendment has been published
+        • The document status has changed (e.g. superseded, under revision)
+        • Additional related guidance has been issued since the vector
+          store snapshot
+      Record the update_check_result for each source. If the web result
+      contradicts or supersedes the vector store version, flag the
+      discrepancy and prefer the more recent authoritative text.
 
   Parametric quotation from training data is prohibited.
-  If retrieval fails for a source in both phases, record the failure
-  explicitly.
+  If retrieval fails for a source in BOTH phases, record the failure
+  explicitly with the sites searched and queries attempted.
 
 TARGET SOURCES (in priority order):
   1. MDR text (Regulation (EU) 2017/745) — Annex VIII rules, relevant
@@ -104,19 +133,33 @@ Intended purpose: {intended_purpose}
 Device type: {device_type}
 Rules likely engaged: {applicable_rules_hint}
 
-Retrieve (search the vector store FIRST, then web search for updates):
+Retrieve using the two-phase protocol:
+
+PHASE 1 — VECTOR STORE SEARCH:
 1. Verbatim text of all 22 Annex VIII classification rules
 2. Relevant MDCG guidance sections (2021-24, 2019-11, 2022-5 as applicable)
 3. Any relevant CJEU rulings
 4. Borderline Manual entries if relevant
 5. Team-NB positions if relevant
-6. EUDAMED entries if available (web search — live data)
 
-For each source found in the vector store, do a targeted web search to
-check if a newer revision exists. Return JSON only."""
+PHASE 2 — MANDATORY WEB SEARCH (both scenarios):
+A) For anything NOT found in the vector store: search these regulatory
+   sites directly as fallback:
+   - eur-lex.europa.eu (MDR text, delegated acts)
+   - health.ec.europa.eu (MDCG guidance)
+   - curia.europa.eu (CJEU rulings)
+   - ec.europa.eu/tools/eudamed (device registrations — always web-only)
+   - team-nb.org (position papers)
+   Use site-scoped queries for precision.
+
+B) For everything FOUND in the vector store: search the same regulatory
+   sites to check for updates, newer revisions, or corrigenda.
+   Record findings in update_check_result.
+
+Return JSON only."""
 
     if status_callback:
-        status_callback("Regulatory search: searching vector store for legislative texts...")
+        status_callback("Regulatory search: querying vector store, then checking regulatory sites for gaps and updates...")
 
     tools = [
         {
@@ -137,7 +180,7 @@ check if a newer revision exists. Return JSON only."""
     raw_text = response.output_text
 
     if status_callback:
-        status_callback("Regulatory search: parsing vector store and web results...")
+        status_callback("Regulatory search: parsing results (vector store + regulatory site checks)...")
 
     try:
         result = json.loads(raw_text)
