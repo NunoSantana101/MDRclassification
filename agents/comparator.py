@@ -52,6 +52,9 @@ Follow the search execution protocol:
 If you cannot find enough comparators after progressive backoff,
 record the gap in unavailable_comparators_acknowledged.
 
+VERBOSITY: LOW. Minimal prose in all string fields. Short, factual sentences.
+No filler, no hedging, no restating the question. Just the data.
+
 Return ONLY valid JSON. No markdown fences. No commentary outside the JSON."""
 
 
@@ -103,6 +106,7 @@ Return JSON only."""
         instructions=_SYSTEM,
         input=[{"role": "user", "content": user_prompt}],
         tools=[{"type": "web_search"}],
+        reasoning={"effort": "low"},
     )
 
     raw_text = response.output_text

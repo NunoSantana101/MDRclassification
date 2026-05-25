@@ -43,6 +43,10 @@ CRITICAL CONSTRAINTS:
 - Surface interpretive uncertainties honestly; do not resolve them
   deterministically.
 
+VERBOSITY: LOW. All prose fields: short, factual, direct sentences.
+No filler phrases, no restating inputs, no padding. Meet minLength
+requirements with substance, not volume.
+
 OUTPUT FORMAT:
 Return a single JSON object with all required v4 schema fields.
 No markdown fences. No commentary outside the JSON."""
@@ -232,6 +236,7 @@ Return ONLY the JSON. No markdown fences."""
         instructions=_SYSTEM,
         input=[{"role": "user", "content": user_message}],
         tools=ORCHESTRATOR_TOOLS,
+        reasoning={"effort": "medium"},
     )
 
     max_rounds = 6
@@ -274,6 +279,7 @@ Return ONLY the JSON. No markdown fences."""
             input=tool_results_input,
             tools=ORCHESTRATOR_TOOLS,
             previous_response_id=response.id,
+            reasoning={"effort": "medium"},
         )
 
     raw_text = response.output_text

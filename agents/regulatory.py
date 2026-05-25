@@ -52,6 +52,9 @@ Return your output as a single JSON object with keys:
   annex_viii_rules     – array of rule objects
   retrieval_failures   – array of sources attempted but not found
 
+VERBOSITY: LOW. Minimal prose. Short factual sentences only.
+No filler, no hedging. Just retrieve and return structured data.
+
 Return ONLY valid JSON. No markdown fences. No commentary outside the JSON."""
 
 
@@ -91,6 +94,7 @@ Use web search for every source. Return JSON only."""
         instructions=_SYSTEM,
         input=[{"role": "user", "content": user_prompt}],
         tools=[{"type": "web_search"}],
+        reasoning={"effort": "low"},
     )
 
     raw_text = response.output_text
