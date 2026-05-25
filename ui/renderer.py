@@ -1,19 +1,7 @@
 """Render the v4 schema JSON output as a human-readable regulatory note."""
 
 from __future__ import annotations
-import json
 import streamlit as st
-
-
-def _get(obj: dict, *keys, default="—"):
-    """Safely navigate nested dicts."""
-    current = obj
-    for k in keys:
-        if isinstance(current, dict):
-            current = current.get(k, default)
-        else:
-            return default
-    return current
 
 
 def render_classification_result(result: dict) -> None:

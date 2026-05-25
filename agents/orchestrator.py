@@ -282,14 +282,26 @@ Return ONLY the JSON. No markdown fences."""
             reasoning={"effort": "medium"},
         )
 
-    raw_text = response.output_text
+    try:
+        raw_text = response.output_text
+    except Exception:
+        raw_text = ""
+
+    if not raw_text:
+        return {
+            "v4_output": {"error": "Orchestrator produced no text output after tool calls"},
+            "regulatory_raw": nano_outputs["regulatory_raw"],
+            "comparator_raw": nano_outputs["comparator_raw"],
+            "orchestrator_raw": "",
+        }
 
     try:
         v4_output = json.loads(raw_text)
     except json.JSONDecodeError:
         cleaned = raw_text.strip()
         if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1]
+            lines = cleaned.split("\n", 1)
+            cleaned = lines[1] if len(lines) > 1 else ""
         if cleaned.endswith("```"):
             cleaned = cleaned.rsplit("```", 1)[0]
         try:

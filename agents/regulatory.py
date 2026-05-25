@@ -107,7 +107,8 @@ Use web search for every source. Return JSON only."""
     except json.JSONDecodeError:
         cleaned = raw_text.strip()
         if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1]
+            lines = cleaned.split("\n", 1)
+            cleaned = lines[1] if len(lines) > 1 else ""
         if cleaned.endswith("```"):
             cleaned = cleaned.rsplit("```", 1)[0]
         try:
