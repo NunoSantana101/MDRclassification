@@ -19,3 +19,4 @@ def _get_secret(key: str, default: str = "") -> str:
 OPENAI_API_KEY = _get_secret("OPENAI_API_KEY")
 ORCHESTRATOR_MODEL = _get_secret("ORCHESTRATOR_MODEL", "gpt-5.4-mini")
 NANO_MODEL = _get_secret("NANO_MODEL", "gpt-5.4-nano")
+REGULATORY_VECTOR_STORE_ID = _get_secret("REGULATORY_VECTOR_STORE_ID")
