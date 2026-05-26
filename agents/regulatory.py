@@ -1,16 +1,19 @@
 """Nano agent: Regulatory Source Retrieval.
 
-Uses gpt-5.4-nano with file_search (vector store of legislative texts)
-and web_search to retrieve regulatory sources per the v4 schema's
-retrieval contract: EUR-Lex MDR text, MDCG guidance, CJEU rulings,
-EUDAMED entries, Borderline Manual, Team-NB papers.
+Uses gpt-5.4-nano with file_search (vector store) and web_search to
+retrieve regulatory sources per the v4 schema's retrieval contract.
+
+Vector store (vs_6a14b66511948191b9347957d35ce4aa) contains:
+  - Regulation (EU) 2017/745 (MDR full text including Annexes)
+  - MDCG 2019-11 (Software Qualification and Classification)
+  - ISO 13485:2016 (Quality Management Systems)
 
 Two-phase retrieval:
-  - Phase 1: Search vector store for authoritative texts.
+  - Phase 1: Search vector store for MDR text, MDCG 2019-11, ISO 13485.
   - Phase 2 (mandatory): Web search targeting regulatory sites
-    (EUR-Lex, EC Health, CURIA, EUDAMED, Team-NB) — as fallback for
-    sources not found in the vector store, AND as update check for
-    sources that were found.
+    (EUR-Lex, EC Health, CURIA, EUDAMED, Team-NB) — retrieves sources
+    NOT in the vector store (CJEU rulings, Borderline Manual, Team-NB,
+    other MDCG guidance), AND checks for updates to vector store sources.
 """
 
 from __future__ import annotations
@@ -27,11 +30,20 @@ regulatory sources.
 RETRIEVAL CONTRACT — you MUST follow this two-phase approach:
 
   PHASE 1 — VECTOR STORE (file_search):
-    Search the vector store FIRST. It contains authoritative legislative
-    texts including the MDR (Regulation (EU) 2017/745), MDCG guidance
-    documents, CJEU rulings, Borderline Manual entries, and Team-NB
-    position papers. Use file_search to find and extract verbatim text
-    for all relevant sources. This is your primary retrieval mechanism.
+    Search the vector store FIRST. It contains the following documents:
+      • Regulation (EU) 2017/745 (MDR) — full text including all Annexes
+        (Annex VIII classification rules, Annex IX–XI conformity
+        assessment procedures, definitions in Article 2, etc.)
+      • MDCG 2019-11 — Guidance on Qualification and Classification of
+        Software in Regulation (EU) 2017/745 (MDR)
+      • ISO 13485:2016 — Medical devices — Quality management systems —
+        Requirements for regulatory purposes
+    These are the ONLY documents in the vector store. Do NOT expect to
+    find CJEU rulings, Borderline Manual, Team-NB papers, or other MDCG
+    guidance (e.g. 2021-24, 2022-5) here — retrieve those via web search
+    in Phase 2.
+    Use file_search to find and extract verbatim text for all relevant
+    sources. This is your primary retrieval mechanism.
 
   PHASE 2 — WEB SEARCH (mandatory for every source, regardless of
   Phase 1 outcome):
