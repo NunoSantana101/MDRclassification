@@ -44,14 +44,19 @@ if device_params:
     st.session_state.classification_result = None
     st.session_state.device_params = device_params
 
-    user_msg = (
-        f"**Classify this device:**\n\n"
-        f"- **Description:** {device_params['device_description']}\n"
-        f"- **Intended purpose:** {device_params['intended_purpose']}\n"
-        f"- **Type:** {device_params['device_type']}\n"
-        f"- **User:** {device_params['user_type']}\n"
-        f"- **Environment:** {device_params['use_environment']}"
-    )
+    user_msg_lines = [
+        "**Classify this device:**",
+        "",
+        f"- **Description:** {device_params['device_description']}",
+        f"- **Intended purpose:** {device_params['intended_purpose']}",
+        f"- **Invasiveness:** {device_params['invasiveness_category']}",
+        f"- **Duration:** {device_params['duration_of_use']}",
+        f"- **Active device:** {device_params['is_active_device']}",
+        f"- **MDSW:** {device_params['is_mdsw']}",
+        f"- **User:** {device_params['user_type']}",
+        f"- **Environment:** {device_params['use_environment']}",
+    ]
+    user_msg = "\n".join(user_msg_lines)
 
     with st.chat_message("user"):
         st.markdown(user_msg)
@@ -65,11 +70,7 @@ if device_params:
 
         try:
             result = run_classification_pipeline(
-                device_description=device_params["device_description"],
-                intended_purpose=device_params["intended_purpose"],
-                device_type=device_params["device_type"],
-                user_type=device_params["user_type"],
-                use_environment=device_params["use_environment"],
+                device_params,
                 status_callback=on_status,
             )
 
