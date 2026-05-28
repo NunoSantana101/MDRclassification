@@ -458,7 +458,7 @@ Return ONLY the JSON. No markdown fences."""
     )
     _record_orchestrator_call(response, audit_log)
 
-    max_rounds = 6
+    max_rounds = 10
     for _ in range(max_rounds):
         tool_calls = [
             item for item in response.output if item.type == "function_call"
@@ -514,6 +514,40 @@ Return ONLY the JSON. No markdown fences."""
     except Exception:
         raw_text = ""
 
+    # Fallback: when the loop exits without text (budget exhausted with
+    # tools still pending, or model emitted only reasoning items),
+    # force one no-tools turn that has to produce the JSON.
+    if not raw_text:
+        if status_callback:
+            status_callback("Orchestrator: forcing final composition (no tools)...")
+        try:
+            response = client.responses.create(
+                model=ORCHESTRATOR_MODEL,
+                instructions=(
+                    _SYSTEM
+                    + "\n\nFINAL COMPOSITION TURN: compose the JSON now."
+                    " Do not call any tools. Use everything already retrieved."
+                ),
+                input=[{
+                    "role": "user",
+                    "content": (
+                        "Output the final v4 schema JSON now using the "
+                        "retrieved sources. No more tool calls. Return "
+                        "ONLY the JSON. No markdown fences."
+                    ),
+                }],
+                previous_response_id=response.id,
+                reasoning={"effort": "low"},
+            )
+            _record_orchestrator_call(response, audit_log)
+            try:
+                raw_text = response.output_text
+            except Exception:
+                raw_text = ""
+        except Exception as exc:
+            if status_callback:
+                status_callback(f"Orchestrator: fallback composition failed ({exc})")
+
     if raw_text:
         try:
             v4_output = json.loads(raw_text)
@@ -529,7 +563,14 @@ Return ONLY the JSON. No markdown fences."""
             except json.JSONDecodeError:
                 v4_output = {"error": "Failed to parse orchestrator output", "raw": raw_text[:3000]}
     else:
-        v4_output = {"error": "Orchestrator produced no text output after tool calls"}
+        last_status = getattr(response, "status", None)
+        incomplete = getattr(response, "incomplete_details", None)
+        v4_output = {
+            "error": "Orchestrator produced no text output after tool calls",
+            "last_response_status": str(last_status) if last_status else None,
+            "incomplete_details": str(incomplete) if incomplete else None,
+            "rounds_used": len(audit_log["openai_calls"]),
+        }
 
     if status_callback:
         status_callback("Cleanup: deleting stored OpenAI responses...")
