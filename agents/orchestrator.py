@@ -227,12 +227,91 @@ def _delete_stored_responses(client: OpenAI, response_ids: list[str], audit_log:
         audit_log["deletions"].append(entry)
 
 
+def _format_device_brief(p: dict) -> str:
+    """Render the full structured device parameters as a deterministic
+    block of text for the orchestrator's user message."""
+
+    def yn(v):
+        if isinstance(v, bool):
+            return "Yes" if v else "No"
+        return v or "—"
+
+    def lst(v):
+        if not v:
+            return "—"
+        return ", ".join(v) if isinstance(v, list) else str(v)
+
+    triggers = []
+    if p.get("rule_14_medicinal_substance"):
+        triggers.append("Rule 14 — medicinal substance with ancillary action")
+    if p.get("rule_18_non_viable_tissue"):
+        triggers.append("Rule 18 — non-viable human or animal tissue")
+    if p.get("rule_14_blood_derivative"):
+        triggers.append("Rule 14 — human blood derivative")
+    if p.get("rule_15_contraception_or_sti"):
+        triggers.append("Rule 15 — contraception / STI prevention")
+    if p.get("rule_16_disinfection"):
+        triggers.append("Rule 16 — disinfection, cleaning or sterilising medical devices")
+    if p.get("rule_17_xray_images"):
+        triggers.append("Rule 17 — diagnostic images from X-ray")
+    if p.get("rule_19_nanomaterial"):
+        exp = p.get("nanomaterial_exposure_potential") or "—"
+        triggers.append(f"Rule 19 — nanomaterial (internal exposure potential: {exp})")
+    if p.get("rule_20_inhalation"):
+        triggers.append("Rule 20 — administers medicines by inhalation via a body orifice")
+    if p.get("rule_21_absorbed_substance"):
+        triggers.append("Rule 21 — substances absorbed by or locally dispersed in the body")
+
+    lines = [
+        "1. IDENTITY AND PURPOSE",
+        f"   Device description: {p.get('device_description', '')}",
+        f"   Intended purpose (medical claim): {p.get('intended_purpose', '')}",
+        f"   Reusability: {p.get('reusability', '—')}",
+        f"   Sterile state: {p.get('sterile_state', '—')}",
+        f"   Measuring function: {yn(p.get('measuring_function'))}",
+        "",
+        "2. INVASIVENESS AND BODY CONTACT",
+        f"   Invasiveness category: {p.get('invasiveness_category', '—')}",
+        f"   Non-invasive contact type: {p.get('non_invasive_contact_type', '—') or '—'}",
+        f"   Anatomical contact site(s): {lst(p.get('anatomical_contact_sites'))}",
+        f"   Connected to an active device: {yn(p.get('connected_to_active_device'))}",
+        "",
+        "3. DURATION OF USE",
+        f"   Continuous use duration: {p.get('duration_of_use', '—')}",
+        "   (Interrupted use of the same device counts cumulatively.)",
+        "",
+        "4. ACTIVE DEVICE FUNCTION",
+        f"   Active device: {yn(p.get('is_active_device'))}",
+        f"   Active function(s): {lst(p.get('active_functions'))}",
+        f"   Potentially hazardous energy administration: {yn(p.get('hazardous_energy_administration'))}",
+        f"   Monitors vital parameters (immediate danger): {yn(p.get('monitors_vital_immediate_danger'))}",
+        f"   Integrated closed-loop diagnostic (Rule 22): {yn(p.get('integrated_closed_loop_diagnostic'))}",
+        "",
+        "5. SOFTWARE SPECIFICS (MDSW)",
+        f"   Standalone MDSW: {yn(p.get('is_mdsw'))}",
+        f"   Information drives diagnostic/therapeutic decisions: {yn(p.get('info_drives_decisions'))}",
+        f"   Decision significance: {p.get('decision_significance', '—') or '—'}",
+        f"   Monitoring role: {p.get('monitoring_role', '—') or '—'}",
+        f"   Drives or controls a hardware device: {yn(p.get('drives_hardware_device'))}",
+        "",
+        "6. SPECIAL-RULE TRIGGERS",
+    ]
+    if triggers:
+        lines.extend(f"   - {t}" for t in triggers)
+    else:
+        lines.append("   None flagged.")
+    lines.extend([
+        "",
+        "7. IMPLEMENTING META",
+        f"   Intended user: {p.get('user_type', '—')}",
+        f"   Use environment: {p.get('use_environment', '—')}",
+        f"   Multiple intended uses (most critical): {p.get('multiple_intended_uses') or '—'}",
+    ])
+    return "\n".join(lines)
+
+
 def run_classification_pipeline(
-    device_description: str,
-    intended_purpose: str,
-    device_type: str,
-    user_type: str,
-    use_environment: str,
+    device_params: dict,
     *,
     status_callback=None,
 ) -> dict:
@@ -255,13 +334,7 @@ def run_classification_pipeline(
     audit_log: dict = {
         "session_id": str(uuid.uuid4()),
         "started_at": datetime.now(timezone.utc).isoformat(),
-        "device_parameters": {
-            "device_description": device_description,
-            "intended_purpose": intended_purpose,
-            "device_type": device_type,
-            "user_type": user_type,
-            "use_environment": use_environment,
-        },
+        "device_parameters": dict(device_params),
         "openai_calls": [],
         "deletions": [],
         "completed_at": None,
@@ -273,22 +346,23 @@ def run_classification_pipeline(
         audit_log["openai_calls"].append(entry)
 
     v4_schema_text = _V4_SCHEMA_PATH.read_text()
+    device_brief = _format_device_brief(device_params)
 
     user_message = f"""Classify the following medical device under MDR Annex VIII.
 
-DEVICE PARAMETERS
-=================
-Device description: {device_description}
-Intended purpose: {intended_purpose}
-Device type: {device_type}
-Intended user: {user_type}
-Use environment: {use_environment}
+STRUCTURED DEVICE PARAMETERS
+============================
+{device_brief}
 
 INSTRUCTIONS
 ============
 1. First call run_regulatory_search to retrieve Annex VIII rule texts
-   and relevant guidance.
-2. Perform your rule-by-rule assessment using the retrieved texts.
+   and relevant guidance. Use the structured parameters above to derive
+   the applicable_rules_hint (e.g. Rule 11 for MDSW, Rule 14 for
+   medicinal substance, Rule 22 for closed-loop diagnostic, etc.).
+2. Perform your rule-by-rule assessment using the retrieved texts and
+   the structured parameters. The fields above directly encode the
+   implementing logic of Annex VIII — do not contradict them.
 3. Then call run_comparator_engine to find comparable devices.
 4. Compose the final output as JSON conforming to this schema:
 
