@@ -244,23 +244,30 @@ def _format_device_brief(p: dict) -> str:
     triggers = []
     if p.get("rule_14_medicinal_substance"):
         triggers.append("Rule 14 — medicinal substance with ancillary action")
-    if p.get("rule_18_non_viable_tissue"):
-        triggers.append("Rule 18 — non-viable human or animal tissue")
     if p.get("rule_14_blood_derivative"):
         triggers.append("Rule 14 — human blood derivative")
+    if p.get("rule_18_non_viable_tissue"):
+        triggers.append("Rule 18 — non-viable human or animal tissue")
     if p.get("rule_15_contraception_or_sti"):
-        triggers.append("Rule 15 — contraception / STI prevention")
+        form = p.get("rule_15_form") or "—"
+        triggers.append(f"Rule 15 — contraception / STI prevention (form: {form})")
     if p.get("rule_16_disinfection"):
-        triggers.append("Rule 16 — disinfection, cleaning or sterilising medical devices")
+        target = p.get("rule_16_target") or "—"
+        triggers.append(f"Rule 16 — disinfection / cleaning / sterilising (target: {target})")
     if p.get("rule_17_xray_images"):
         triggers.append("Rule 17 — diagnostic images from X-ray")
     if p.get("rule_19_nanomaterial"):
         exp = p.get("nanomaterial_exposure_potential") or "—"
         triggers.append(f"Rule 19 — nanomaterial (internal exposure potential: {exp})")
     if p.get("rule_20_inhalation"):
-        triggers.append("Rule 20 — administers medicines by inhalation via a body orifice")
+        ess = yn(p.get("rule_20_essential_to_efficacy"))
+        triggers.append(
+            f"Rule 20 — administers medicines by inhalation "
+            f"(essential to efficacy / life-threatening: {ess})"
+        )
     if p.get("rule_21_absorbed_substance"):
-        triggers.append("Rule 21 — substances absorbed by or locally dispersed in the body")
+        mode = p.get("rule_21_action_mode") or "—"
+        triggers.append(f"Rule 21 — substances via orifice or skin (mode of action: {mode})")
 
     lines = [
         "1. IDENTITY AND PURPOSE",
@@ -270,11 +277,11 @@ def _format_device_brief(p: dict) -> str:
         f"   Sterile state: {p.get('sterile_state', '—')}",
         f"   Measuring function: {yn(p.get('measuring_function'))}",
         "",
-        "2. INVASIVENESS AND BODY CONTACT",
+        "2. BODY CONTACT AND INVASIVENESS",
         f"   Invasiveness category: {p.get('invasiveness_category', '—')}",
         f"   Non-invasive contact type: {p.get('non_invasive_contact_type', '—') or '—'}",
         f"   Anatomical contact site(s): {lst(p.get('anatomical_contact_sites'))}",
-        f"   Connected to an active device: {yn(p.get('connected_to_active_device'))}",
+        f"   Connected to a separate active device: {yn(p.get('connected_to_active_device'))}",
         "",
         "3. DURATION OF USE",
         f"   Continuous use duration: {p.get('duration_of_use', '—')}",
@@ -282,30 +289,46 @@ def _format_device_brief(p: dict) -> str:
         "",
         "4. ACTIVE DEVICE FUNCTION",
         f"   Active device: {yn(p.get('is_active_device'))}",
-        f"   Active function(s): {lst(p.get('active_functions'))}",
-        f"   Potentially hazardous energy administration: {yn(p.get('hazardous_energy_administration'))}",
-        f"   Monitors vital parameters (immediate danger): {yn(p.get('monitors_vital_immediate_danger'))}",
-        f"   Integrated closed-loop diagnostic (Rule 22): {yn(p.get('integrated_closed_loop_diagnostic'))}",
+    ]
+    if p.get("is_active_device") == "Yes":
+        lines.extend([
+            f"   Active function(s): {lst(p.get('active_functions'))}",
+            f"   Potentially hazardous energy administration: {yn(p.get('hazardous_energy_administration'))}",
+            f"   Monitors vital parameters (immediate danger): {yn(p.get('monitors_vital_immediate_danger'))}",
+            f"   Integrated closed-loop diagnostic (Rule 22): {yn(p.get('integrated_closed_loop_diagnostic'))}",
+        ])
+    else:
+        lines.append("   (Sub-questions skipped — Rules 9, 10, 12, 13 and 22 do not apply.)")
+
+    lines.extend([
         "",
         "5. SOFTWARE SPECIFICS (MDSW)",
         f"   Standalone MDSW: {yn(p.get('is_mdsw'))}",
-        f"   Information drives diagnostic/therapeutic decisions: {yn(p.get('info_drives_decisions'))}",
-        f"   Decision significance: {p.get('decision_significance', '—') or '—'}",
-        f"   Monitoring role: {p.get('monitoring_role', '—') or '—'}",
-        f"   Drives or controls a hardware device: {yn(p.get('drives_hardware_device'))}",
+    ])
+    if p.get("is_mdsw") == "Yes":
+        lines.extend([
+            f"   Information drives diagnostic/therapeutic decisions: {yn(p.get('info_drives_decisions'))}",
+            f"   Decision impact: {p.get('decision_significance', '—') or '—'}",
+            f"   Monitoring role: {p.get('monitoring_role', '—') or '—'}",
+            f"   Drives or controls a hardware device: {yn(p.get('drives_hardware_device'))}",
+        ])
+    else:
+        lines.append("   (Sub-questions skipped — Rule 11 does not apply.)")
+
+    lines.extend([
         "",
         "6. SPECIAL-RULE TRIGGERS",
-    ]
+    ])
     if triggers:
         lines.extend(f"   - {t}" for t in triggers)
     else:
         lines.append("   None flagged.")
     lines.extend([
         "",
-        "7. IMPLEMENTING META",
+        "7. USE CONTEXT",
         f"   Intended user: {p.get('user_type', '—')}",
         f"   Use environment: {p.get('use_environment', '—')}",
-        f"   Multiple intended uses (most critical): {p.get('multiple_intended_uses') or '—'}",
+        f"   Most critical intended use: {p.get('multiple_intended_uses') or '—'}",
     ])
     return "\n".join(lines)
 

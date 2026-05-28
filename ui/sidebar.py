@@ -1,7 +1,8 @@
 """Sidebar form for device parameter input.
 
-Structured per MDR Annex VIII implementing rules so every field can be
-mapped back to the rule(s) it drives.
+Structured per MDR Annex VIII so every field maps back to the rule(s) it
+drives. Conditional gating keeps each section relevant: sub-questions
+appear only when the parent answer would make them load-bearing.
 """
 
 from __future__ import annotations
@@ -19,8 +20,6 @@ STERILE_STATE = [
     "Supplied sterile",
     "Sterilised before use",
 ]
-
-YN = ["No", "Yes"]
 
 INVASIVENESS_CATEGORY = [
     "Non-invasive",
@@ -66,7 +65,6 @@ ACTIVE_FUNCTIONS = [
 ]
 
 DECISION_SIGNIFICANCE = [
-    "Informs without driving decisions (Class I)",
     "Other diagnostic or therapeutic decisions (Class IIa)",
     "May cause serious deterioration or surgical intervention (Class IIb)",
     "May cause death or irreversible deterioration (Class III)",
@@ -82,6 +80,24 @@ NANO_EXPOSURE = [
     "Negligible",
     "Low",
     "Medium or high",
+]
+
+R15_FORM = [
+    "Barrier, oral or other non-invasive",
+    "Implantable or long-term invasive",
+]
+
+R16_TARGET = [
+    "Non-invasive medical devices",
+    "Invasive medical devices",
+    "Contact lenses",
+]
+
+R21_ACTION = [
+    "Local action on skin or nasal/oral cavity (IIa)",
+    "Local action elsewhere in the body (IIb)",
+    "Systemically absorbed to achieve intended purpose (III)",
+    "Acts in stomach or lower GI and is systemically absorbed (III)",
 ]
 
 USER_TYPES = [
@@ -102,14 +118,19 @@ USE_ENVIRONMENTS = [
 ]
 
 
-def _yn(label: str, *, help: str | None = None, default: str = "No") -> str:
-    return st.radio(label, YN, index=YN.index(default), horizontal=True, help=help)
+def _toggle(label: str, *, help: str | None = None, default: bool = False) -> str:
+    """Yes/No toggle that returns a stable string for the audit log."""
+    return "Yes" if st.toggle(label, value=default, help=help) else "No"
 
 
 def render_sidebar() -> dict | None:
     """Render the structured sidebar form. Returns device params on submit."""
     with st.sidebar:
-        st.header("Device Parameters")
+        st.header("Device classification")
+        st.caption(
+            "Answer what you know. Sub-questions appear only when they "
+            "change the rule outcome — skip a section if it doesn't apply."
+        )
 
         with st.form("device_form", clear_on_submit=False):
 
@@ -117,164 +138,218 @@ def render_sidebar() -> dict | None:
             st.subheader("1. Identity and purpose")
             device_description = st.text_area(
                 "Device description",
-                height=110,
-                placeholder="Describe the medical device in plain language...",
+                height=100,
+                placeholder="What the device is, in plain language.",
             )
             intended_purpose = st.text_area(
                 "Intended purpose *",
                 height=100,
-                placeholder="State the medical claim, not the mechanism.",
+                placeholder="The medical claim — what the device does for the patient.",
                 help=(
-                    "This is the pivot for every rule. Describe the medical "
-                    "claim (what the device is intended to do for the patient), "
-                    "not how it works."
+                    "State the claim, not the mechanism. Every rule reads "
+                    "from this field."
                 ),
             )
-            reusability = st.selectbox("Reusability", REUSABILITY)
-            sterile_state = st.selectbox("Sterile state", STERILE_STATE)
-            measuring_function = _yn(
-                "Measuring function",
-                help='"Yes" triggers the Class Im designation.',
+            reusability = st.selectbox("Reusability", REUSABILITY, index=0)
+            sterile_state = st.selectbox("Sterile state", STERILE_STATE, index=0)
+            measuring_function = _toggle(
+                "Has a measuring function",
+                help='Triggers the Class Im designation when "Yes".',
+                default=False,
             )
 
-            # ── 2. Invasiveness and body contact ──────────────────
-            st.subheader("2. Invasiveness and body contact")
+            # ── 2. Body contact and invasiveness ──────────────────
+            st.subheader("2. Body contact")
             invasiveness_category = st.selectbox(
-                "Invasiveness category", INVASIVENESS_CATEGORY
+                "Invasiveness", INVASIVENESS_CATEGORY, index=0
             )
             non_invasive_contact_type = ""
             if invasiveness_category == "Non-invasive":
                 non_invasive_contact_type = st.selectbox(
-                    "Non-invasive contact type", NON_INVASIVE_CONTACT
+                    "Contact type", NON_INVASIVE_CONTACT, index=0
                 )
             anatomical_contact_sites = st.multiselect(
                 "Anatomical contact site(s)",
                 ANATOMICAL_SITES,
                 help=(
-                    "Central circulatory system and central nervous system "
-                    "escalate classification to Class III."
+                    "Heart, central circulatory or central nervous system "
+                    "escalate to Class III."
                 ),
             )
-            connected_to_active_device = _yn(
-                "Connected to an active device",
-                help="Drives Rule 8 escalation.",
+            connected_to_active_device = _toggle(
+                "Connected to a separate active device",
+                help="A passive device connected to active equipment may escalate under Rule 8.",
             )
 
             # ── 3. Duration of use ────────────────────────────────
             st.subheader("3. Duration of use")
             duration_of_use = st.selectbox(
-                "Continuous use duration",
+                "Continuous use",
                 DURATION,
+                index=0,
                 help=(
                     "Interrupted use of the same device counts cumulatively "
                     "toward the duration bucket."
                 ),
             )
 
-            # ── 4. Active device function ─────────────────────────
+            # ── 4. Active device function (gated) ─────────────────
             st.subheader("4. Active device function")
-            is_active_device = _yn("Active device")
-            active_functions = []
+            is_active_device = _toggle(
+                "This is an active device",
+                help=(
+                    "Active = runs on energy other than that generated by "
+                    "the human body or by gravity. Rules 9, 10, 12, 13 and "
+                    "22 only apply if Yes."
+                ),
+            )
+            active_functions: list[str] = []
+            hazardous_energy_administration = "No"
+            monitors_vital_immediate_danger = "No"
+            integrated_closed_loop_diagnostic = "No"
             if is_active_device == "Yes":
                 active_functions = st.multiselect(
-                    "Active function(s)", ACTIVE_FUNCTIONS
+                    "What does it do (one or more)?", ACTIVE_FUNCTIONS
                 )
-            hazardous_energy_administration = _yn(
-                "Potentially hazardous energy administration",
-                help="Escalates therapeutic actives to IIb.",
-            )
-            monitors_vital_immediate_danger = _yn(
-                "Monitors vital parameters where variation could cause immediate danger",
-                help="Escalates to IIb.",
-            )
-            integrated_closed_loop_diagnostic = _yn(
-                "Integrated diagnostic function that significantly determines patient management",
-                help="Rule 22, closed-loop, Class III.",
-            )
+                hazardous_energy_administration = _toggle(
+                    "Administers potentially hazardous energy",
+                    help="Rule 9 escalation to Class IIb.",
+                )
+                monitors_vital_immediate_danger = _toggle(
+                    "Monitors vital signs where failure could be immediately dangerous",
+                    help="Rule 10 escalation to Class IIb.",
+                )
+                integrated_closed_loop_diagnostic = _toggle(
+                    "Integrated closed-loop diagnostic that determines patient management",
+                    help="Rule 22 — Class III.",
+                )
 
-            # ── 5. Software specifics (MDSW) ──────────────────────
-            st.subheader("5. Software specifics (MDSW)")
-            is_mdsw = _yn(
+            # ── 5. Software (gated) ───────────────────────────────
+            st.subheader("5. Software (MDSW)")
+            is_mdsw = _toggle(
                 "Standalone medical device software (MDSW)",
-                help="Gates Rule 11 specifics.",
+                help="Gates Rule 11. Skip if the device is not software.",
             )
             info_drives_decisions = "No"
             decision_significance = ""
             monitoring_role = ""
             drives_hardware_device = "No"
             if is_mdsw == "Yes":
-                info_drives_decisions = _yn(
-                    "Information drives diagnostic or therapeutic decisions"
+                info_drives_decisions = _toggle(
+                    "Information drives a diagnostic or therapeutic decision",
+                    help='If "No", Rule 11 places the software at Class I.',
                 )
-                decision_significance = st.selectbox(
-                    "Decision significance", DECISION_SIGNIFICANCE
+                if info_drives_decisions == "Yes":
+                    decision_significance = st.selectbox(
+                        "Impact of that decision",
+                        DECISION_SIGNIFICANCE,
+                        index=0,
+                        help="Picks the Rule 11 class.",
+                    )
+                monitoring_role = st.selectbox(
+                    "Monitoring role", MONITORING_ROLE, index=0
                 )
-                monitoring_role = st.selectbox("Monitoring role", MONITORING_ROLE)
-                drives_hardware_device = _yn(
+                drives_hardware_device = _toggle(
                     "Drives or controls a hardware device",
-                    help=(
-                        "If yes, the software inherits the host device's "
-                        "classification pathway."
-                    ),
+                    help="If yes, the software inherits the host device's pathway.",
                 )
 
             # ── 6. Special-rule triggers ──────────────────────────
             st.subheader("6. Special-rule triggers")
+            st.caption("Tick only what applies. Sub-questions appear when needed.")
+
             rule_14_medicinal_substance = st.checkbox(
-                "Incorporates a medicinal substance with ancillary action "
-                "(Rule 14, III)"
-            )
-            rule_18_non_viable_tissue = st.checkbox(
-                "Incorporates non-viable human or animal tissue or derivative "
-                "(Rule 18, III)"
+                "Incorporates a medicinal substance with ancillary action (Rule 14, III)"
             )
             rule_14_blood_derivative = st.checkbox(
                 "Incorporates a human blood derivative (Rule 14, III)"
             )
+            rule_18_non_viable_tissue = st.checkbox(
+                "Incorporates non-viable human or animal tissue or derivative (Rule 18, III)"
+            )
+
             rule_15_contraception_or_sti = st.checkbox(
-                "Intended for contraception or prevention of sexually "
-                "transmitted infection (Rule 15)"
+                "Intended for contraception or prevention of sexually transmitted infection (Rule 15)"
             )
+            rule_15_form = ""
+            if rule_15_contraception_or_sti:
+                rule_15_form = st.selectbox(
+                    "Form of the device",
+                    R15_FORM,
+                    index=0,
+                    help="Implantable or long-term invasive contraceptives → III; others → IIb.",
+                )
+
             rule_16_disinfection = st.checkbox(
-                "Specifically for disinfecting, cleaning or sterilising "
-                "medical devices (Rule 16)"
+                "Specifically disinfects, cleans, sterilises or hydrates medical devices (Rule 16)"
             )
+            rule_16_target = ""
+            if rule_16_disinfection:
+                rule_16_target = st.selectbox(
+                    "What does it process?",
+                    R16_TARGET,
+                    index=0,
+                    help="Invasive devices or contact lenses → IIb; non-invasive → IIa.",
+                )
+
             rule_17_xray_images = st.checkbox(
-                "Records diagnostic images generated by X-ray (Rule 17)"
+                "Records diagnostic images generated by X-ray (Rule 17, IIb)"
             )
+
             rule_19_nanomaterial = st.checkbox(
                 "Incorporates or consists of nanomaterial (Rule 19)"
             )
             nanomaterial_exposure_potential = ""
             if rule_19_nanomaterial:
                 nanomaterial_exposure_potential = st.selectbox(
-                    "Internal exposure potential", NANO_EXPOSURE
+                    "Internal exposure potential",
+                    NANO_EXPOSURE,
+                    index=0,
+                    help="Negligible → IIa, Low → IIb, Medium or high → III.",
                 )
-            rule_20_inhalation = st.checkbox(
-                "Administers medicines by inhalation via a body orifice (Rule 20)"
-            )
-            rule_21_absorbed_substance = st.checkbox(
-                "Composed of substances absorbed by or locally dispersed in "
-                "the body (Rule 21)"
-            )
 
-            # ── 7. Implementing meta ──────────────────────────────
-            st.subheader("7. Implementing meta")
-            user_type = st.selectbox("Intended user", USER_TYPES)
-            use_environment = st.selectbox("Use environment", USE_ENVIRONMENTS)
+            rule_20_inhalation = st.checkbox(
+                "Administers medicinal products by inhalation via a body orifice (Rule 20)"
+            )
+            rule_20_essential_to_efficacy = "No"
+            if rule_20_inhalation:
+                rule_20_essential_to_efficacy = _toggle(
+                    "Mode of action has an essential impact on efficacy/safety, "
+                    "or is intended for life-threatening conditions",
+                    help='If "Yes" → Class IIb; otherwise → Class IIa.',
+                )
+
+            rule_21_absorbed_substance = st.checkbox(
+                "Composed of substances introduced via body orifice or applied to the skin (Rule 21)"
+            )
+            rule_21_action_mode = ""
+            if rule_21_absorbed_substance:
+                rule_21_action_mode = st.selectbox(
+                    "Mode of action",
+                    R21_ACTION,
+                    index=0,
+                    help="Selects the Rule 21 class.",
+                )
+
+            # ── 7. Use context ────────────────────────────────────
+            st.subheader("7. Use context")
+            user_type = st.selectbox("Intended user", USER_TYPES, index=1)
+            use_environment = st.selectbox(
+                "Use environment", USE_ENVIRONMENTS, index=3
+            )
             multiple_intended_uses = st.text_area(
-                "Multiple intended uses",
-                height=80,
+                "Most critical intended use",
+                height=70,
                 placeholder=(
-                    "If the device has multiple intended uses, record the "
-                    "most critical one — implementing rules classify on the "
-                    "highest-risk intended use."
+                    "Optional — if the device has several intended uses, "
+                    "name the highest-risk one."
                 ),
+                help="Implementing rules classify on the highest-risk intended use.",
             )
 
             st.divider()
             submitted = st.form_submit_button(
-                "Classify Device", type="primary", use_container_width=True
+                "Classify device", type="primary", use_container_width=True
             )
 
         if not submitted:
@@ -315,15 +390,19 @@ def render_sidebar() -> dict | None:
             "drives_hardware_device": drives_hardware_device,
             # Section 6
             "rule_14_medicinal_substance": rule_14_medicinal_substance,
-            "rule_18_non_viable_tissue": rule_18_non_viable_tissue,
             "rule_14_blood_derivative": rule_14_blood_derivative,
+            "rule_18_non_viable_tissue": rule_18_non_viable_tissue,
             "rule_15_contraception_or_sti": rule_15_contraception_or_sti,
+            "rule_15_form": rule_15_form,
             "rule_16_disinfection": rule_16_disinfection,
+            "rule_16_target": rule_16_target,
             "rule_17_xray_images": rule_17_xray_images,
             "rule_19_nanomaterial": rule_19_nanomaterial,
             "nanomaterial_exposure_potential": nanomaterial_exposure_potential,
             "rule_20_inhalation": rule_20_inhalation,
+            "rule_20_essential_to_efficacy": rule_20_essential_to_efficacy,
             "rule_21_absorbed_substance": rule_21_absorbed_substance,
+            "rule_21_action_mode": rule_21_action_mode,
             # Section 7
             "user_type": user_type,
             "use_environment": use_environment,

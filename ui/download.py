@@ -126,57 +126,72 @@ def _render_device_parameters(doc, p: dict) -> None:
     ])
 
     doc.add_paragraph("4. Active device function", style="MDRH2")
-    _add_kv_table(doc, [
+    active_rows: list[tuple[str, str]] = [
         ("Active device", _yn(p.get("is_active_device"))),
-        ("Active function(s)", _lst(p.get("active_functions"))),
-        ("Potentially hazardous energy administration",
-         _yn(p.get("hazardous_energy_administration"))),
-        ("Monitors vital parameters (immediate danger)",
-         _yn(p.get("monitors_vital_immediate_danger"))),
-        ("Integrated closed-loop diagnostic (Rule 22)",
-         _yn(p.get("integrated_closed_loop_diagnostic"))),
-    ])
+    ]
+    if p.get("is_active_device") == "Yes":
+        active_rows.extend([
+            ("Active function(s)", _lst(p.get("active_functions"))),
+            ("Potentially hazardous energy administration",
+             _yn(p.get("hazardous_energy_administration"))),
+            ("Monitors vital parameters (immediate danger)",
+             _yn(p.get("monitors_vital_immediate_danger"))),
+            ("Integrated closed-loop diagnostic (Rule 22)",
+             _yn(p.get("integrated_closed_loop_diagnostic"))),
+        ])
+    _add_kv_table(doc, active_rows)
 
     doc.add_paragraph("5. Software specifics (MDSW)", style="MDRH2")
-    _add_kv_table(doc, [
+    mdsw_rows: list[tuple[str, str]] = [
         ("Standalone MDSW", _yn(p.get("is_mdsw"))),
-        ("Information drives decisions", _yn(p.get("info_drives_decisions"))),
-        ("Decision significance", p.get("decision_significance", "") or "—"),
-        ("Monitoring role", p.get("monitoring_role", "") or "—"),
-        ("Drives or controls a hardware device", _yn(p.get("drives_hardware_device"))),
-    ])
+    ]
+    if p.get("is_mdsw") == "Yes":
+        mdsw_rows.extend([
+            ("Information drives decisions", _yn(p.get("info_drives_decisions"))),
+            ("Decision impact", p.get("decision_significance", "") or "—"),
+            ("Monitoring role", p.get("monitoring_role", "") or "—"),
+            ("Drives or controls a hardware device", _yn(p.get("drives_hardware_device"))),
+        ])
+    _add_kv_table(doc, mdsw_rows)
 
     doc.add_paragraph("6. Special-rule triggers", style="MDRH2")
     trigger_rows: list[tuple[str, str]] = []
     if p.get("rule_14_medicinal_substance"):
         trigger_rows.append(("Rule 14", "Medicinal substance with ancillary action"))
-    if p.get("rule_18_non_viable_tissue"):
-        trigger_rows.append(("Rule 18", "Non-viable human or animal tissue or derivative"))
     if p.get("rule_14_blood_derivative"):
         trigger_rows.append(("Rule 14", "Human blood derivative"))
+    if p.get("rule_18_non_viable_tissue"):
+        trigger_rows.append(("Rule 18", "Non-viable human or animal tissue or derivative"))
     if p.get("rule_15_contraception_or_sti"):
-        trigger_rows.append(("Rule 15", "Contraception / STI prevention"))
+        form = p.get("rule_15_form") or "—"
+        trigger_rows.append(("Rule 15", f"Contraception / STI prevention (form: {form})"))
     if p.get("rule_16_disinfection"):
-        trigger_rows.append(("Rule 16", "Disinfection / cleaning / sterilising medical devices"))
+        target = p.get("rule_16_target") or "—"
+        trigger_rows.append(("Rule 16", f"Disinfection / cleaning / sterilising (target: {target})"))
     if p.get("rule_17_xray_images"):
         trigger_rows.append(("Rule 17", "Diagnostic images from X-ray"))
     if p.get("rule_19_nanomaterial"):
         exp = p.get("nanomaterial_exposure_potential") or "—"
         trigger_rows.append(("Rule 19", f"Nanomaterial (internal exposure: {exp})"))
     if p.get("rule_20_inhalation"):
-        trigger_rows.append(("Rule 20", "Administers medicines by inhalation via body orifice"))
+        ess = _yn(p.get("rule_20_essential_to_efficacy"))
+        trigger_rows.append((
+            "Rule 20",
+            f"Administers medicines by inhalation (essential to efficacy / life-threatening: {ess})",
+        ))
     if p.get("rule_21_absorbed_substance"):
-        trigger_rows.append(("Rule 21", "Substances absorbed by or locally dispersed"))
+        mode = p.get("rule_21_action_mode") or "—"
+        trigger_rows.append(("Rule 21", f"Substances via orifice or skin (mode: {mode})"))
     if trigger_rows:
         _add_kv_table(doc, trigger_rows)
     else:
         doc.add_paragraph("None flagged.", style="MDRBody")
 
-    doc.add_paragraph("7. Implementing meta", style="MDRH2")
+    doc.add_paragraph("7. Use context", style="MDRH2")
     _add_kv_table(doc, [
         ("Intended user", p.get("user_type", "")),
         ("Use environment", p.get("use_environment", "")),
-        ("Multiple intended uses (most critical)",
+        ("Most critical intended use",
          p.get("multiple_intended_uses") or "—"),
     ])
 
