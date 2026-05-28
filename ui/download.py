@@ -87,6 +87,100 @@ def _add_kv_table(doc, rows: list[tuple[str, str]]) -> None:
     doc.add_paragraph()
 
 
+def _yn(v) -> str:
+    if isinstance(v, bool):
+        return "Yes" if v else "No"
+    return v or "—"
+
+
+def _lst(v) -> str:
+    if not v:
+        return "—"
+    return ", ".join(v) if isinstance(v, list) else str(v)
+
+
+def _render_device_parameters(doc, p: dict) -> None:
+    """Render the seven sections of structured device parameters."""
+    doc.add_paragraph("Device Parameters", style="MDRH1")
+
+    doc.add_paragraph("1. Identity and purpose", style="MDRH2")
+    _add_kv_table(doc, [
+        ("Description", p.get("device_description", "")),
+        ("Intended purpose (medical claim)", p.get("intended_purpose", "")),
+        ("Reusability", p.get("reusability", "")),
+        ("Sterile state", p.get("sterile_state", "")),
+        ("Measuring function", _yn(p.get("measuring_function"))),
+    ])
+
+    doc.add_paragraph("2. Invasiveness and body contact", style="MDRH2")
+    _add_kv_table(doc, [
+        ("Invasiveness category", p.get("invasiveness_category", "")),
+        ("Non-invasive contact type", p.get("non_invasive_contact_type", "") or "—"),
+        ("Anatomical contact site(s)", _lst(p.get("anatomical_contact_sites"))),
+        ("Connected to an active device", _yn(p.get("connected_to_active_device"))),
+    ])
+
+    doc.add_paragraph("3. Duration of use", style="MDRH2")
+    _add_kv_table(doc, [
+        ("Continuous use duration", p.get("duration_of_use", "")),
+    ])
+
+    doc.add_paragraph("4. Active device function", style="MDRH2")
+    _add_kv_table(doc, [
+        ("Active device", _yn(p.get("is_active_device"))),
+        ("Active function(s)", _lst(p.get("active_functions"))),
+        ("Potentially hazardous energy administration",
+         _yn(p.get("hazardous_energy_administration"))),
+        ("Monitors vital parameters (immediate danger)",
+         _yn(p.get("monitors_vital_immediate_danger"))),
+        ("Integrated closed-loop diagnostic (Rule 22)",
+         _yn(p.get("integrated_closed_loop_diagnostic"))),
+    ])
+
+    doc.add_paragraph("5. Software specifics (MDSW)", style="MDRH2")
+    _add_kv_table(doc, [
+        ("Standalone MDSW", _yn(p.get("is_mdsw"))),
+        ("Information drives decisions", _yn(p.get("info_drives_decisions"))),
+        ("Decision significance", p.get("decision_significance", "") or "—"),
+        ("Monitoring role", p.get("monitoring_role", "") or "—"),
+        ("Drives or controls a hardware device", _yn(p.get("drives_hardware_device"))),
+    ])
+
+    doc.add_paragraph("6. Special-rule triggers", style="MDRH2")
+    trigger_rows: list[tuple[str, str]] = []
+    if p.get("rule_14_medicinal_substance"):
+        trigger_rows.append(("Rule 14", "Medicinal substance with ancillary action"))
+    if p.get("rule_18_non_viable_tissue"):
+        trigger_rows.append(("Rule 18", "Non-viable human or animal tissue or derivative"))
+    if p.get("rule_14_blood_derivative"):
+        trigger_rows.append(("Rule 14", "Human blood derivative"))
+    if p.get("rule_15_contraception_or_sti"):
+        trigger_rows.append(("Rule 15", "Contraception / STI prevention"))
+    if p.get("rule_16_disinfection"):
+        trigger_rows.append(("Rule 16", "Disinfection / cleaning / sterilising medical devices"))
+    if p.get("rule_17_xray_images"):
+        trigger_rows.append(("Rule 17", "Diagnostic images from X-ray"))
+    if p.get("rule_19_nanomaterial"):
+        exp = p.get("nanomaterial_exposure_potential") or "—"
+        trigger_rows.append(("Rule 19", f"Nanomaterial (internal exposure: {exp})"))
+    if p.get("rule_20_inhalation"):
+        trigger_rows.append(("Rule 20", "Administers medicines by inhalation via body orifice"))
+    if p.get("rule_21_absorbed_substance"):
+        trigger_rows.append(("Rule 21", "Substances absorbed by or locally dispersed"))
+    if trigger_rows:
+        _add_kv_table(doc, trigger_rows)
+    else:
+        doc.add_paragraph("None flagged.", style="MDRBody")
+
+    doc.add_paragraph("7. Implementing meta", style="MDRH2")
+    _add_kv_table(doc, [
+        ("Intended user", p.get("user_type", "")),
+        ("Use environment", p.get("use_environment", "")),
+        ("Multiple intended uses (most critical)",
+         p.get("multiple_intended_uses") or "—"),
+    ])
+
+
 def _render_classification_report(doc, result: dict, device_params: dict) -> None:
     from docx.shared import Pt, RGBColor
 
@@ -102,14 +196,7 @@ def _render_classification_report(doc, result: dict, device_params: dict) -> Non
     run.font.size = Pt(6)
     run.font.color.rgb = RGBColor(*_TEAL)
 
-    doc.add_paragraph("Device Parameters", style="MDRH1")
-    _add_kv_table(doc, [
-        ("Description", device_params.get("device_description", "")),
-        ("Intended purpose", device_params.get("intended_purpose", "")),
-        ("Device type", device_params.get("device_type", "")),
-        ("Intended user", device_params.get("user_type", "")),
-        ("Use environment", device_params.get("use_environment", "")),
-    ])
+    _render_device_parameters(doc, device_params)
 
     if "error" in v4:
         doc.add_paragraph("Classification Error", style="MDRH1")
