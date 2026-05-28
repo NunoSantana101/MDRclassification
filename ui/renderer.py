@@ -3,8 +3,10 @@
 from __future__ import annotations
 import streamlit as st
 
+from ui.download import generate_bundle_zip
 
-def render_classification_result(result: dict) -> None:
+
+def render_classification_result(result: dict, device_params: dict | None = None) -> None:
     """Render the full pipeline result in the Streamlit main area."""
     v4 = result.get("v4_output", {})
 
@@ -15,6 +17,7 @@ def render_classification_result(result: dict) -> None:
                 st.code(v4["raw"], language="text")
         return
 
+    _render_download_button(result, device_params)
     _render_header(v4)
     _render_rationale(v4)
     _render_rule_assessment(v4)
@@ -22,7 +25,63 @@ def render_classification_result(result: dict) -> None:
     _render_comparable_devices(v4)
     _render_uncertainties(v4)
     _render_validation(v4)
+    _render_audit_log(result)
     _render_raw_json_sections(result)
+
+
+def _render_download_button(result: dict, device_params: dict | None) -> None:
+    """Single button that bundles the Word doc, JSON packages and audit log."""
+    params = device_params or {}
+    try:
+        zip_bytes, filename = generate_bundle_zip(result, params)
+    except Exception as exc:
+        st.warning(f"Could not prepare download bundle: {exc}")
+        return
+
+    st.download_button(
+        label="Download session bundle (.zip)",
+        data=zip_bytes,
+        file_name=filename,
+        mime="application/zip",
+        type="primary",
+        help=(
+            "Bundle includes: classification Word document, full session JSON, "
+            "individual JSON packages (v4 output, regulatory search, comparator "
+            "engine) and the audit log of OpenAI calls and deletions."
+        ),
+        use_container_width=True,
+    )
+
+
+def _render_audit_log(result: dict) -> None:
+    audit = result.get("audit_log")
+    if not audit:
+        return
+    with st.expander("Audit log (OpenAI calls and deletions)"):
+        calls = audit.get("openai_calls", [])
+        dels = audit.get("deletions", [])
+        st.markdown(
+            f"**Session:** `{audit.get('session_id', '—')}`  \n"
+            f"**Started:** {audit.get('started_at', '—')}  \n"
+            f"**Completed:** {audit.get('completed_at', '—')}  \n"
+            f"**Calls:** {len(calls)}   **Deletions:** {len(dels)}"
+        )
+        if calls:
+            st.markdown("**Calls**")
+            for c in calls:
+                tools = ", ".join(c.get("tools_invoked") or []) or "—"
+                st.markdown(
+                    f"- `{c.get('agent', '?')}` · "
+                    f"`{c.get('response_id', '—')}` · "
+                    f"model `{c.get('model', '—')}` · tools: {tools}"
+                )
+        if dels:
+            st.markdown("**Deletions**")
+            for d in dels:
+                st.markdown(
+                    f"- `{d.get('response_id', '—')}` — {d.get('status', '—')}"
+                    + (f" ({d.get('error')})" if d.get("error") else "")
+                )
 
 
 def _render_header(v4: dict) -> None:

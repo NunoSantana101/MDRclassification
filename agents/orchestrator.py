@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import pathlib
+import uuid
+from datetime import datetime, timezone
 from openai import OpenAI
 from config import OPENAI_API_KEY, ORCHESTRATOR_MODEL
 from agents.comparator import run_comparator_engine
@@ -157,6 +159,7 @@ def _execute_tool(
     arguments: str,
     *,
     status_callback=None,
+    audit_callback=None,
 ) -> str:
     """Dispatch a tool call to the appropriate nano agent."""
     args = json.loads(arguments)
@@ -168,6 +171,7 @@ def _execute_tool(
             device_type=args["device_type"],
             applicable_rules_hint=args["applicable_rules_hint"],
             status_callback=status_callback,
+            audit_callback=audit_callback,
         )
     elif tool_name == "run_comparator_engine":
         result = run_comparator_engine(
@@ -179,11 +183,48 @@ def _execute_tool(
             user_type=args["user_type"],
             use_environment=args["use_environment"],
             status_callback=status_callback,
+            audit_callback=audit_callback,
         )
     else:
         result = {"error": f"Unknown tool: {tool_name}"}
 
     return json.dumps(result, ensure_ascii=False)
+
+
+def _record_orchestrator_call(response, audit_log: dict) -> None:
+    """Append an orchestrator turn to the audit log."""
+    function_calls = [item for item in response.output if item.type == "function_call"]
+    builtin_calls = sorted({
+        item.type for item in response.output
+        if item.type in ("file_search_call", "web_search_call")
+    })
+    tools_invoked = sorted({tc.name for tc in function_calls}) + builtin_calls
+    usage = getattr(response, "usage", None)
+    audit_log["openai_calls"].append({
+        "agent": "orchestrator",
+        "response_id": response.id,
+        "model": ORCHESTRATOR_MODEL,
+        "tools_offered": [t["name"] for t in ORCHESTRATOR_TOOLS],
+        "tools_invoked": tools_invoked,
+        "usage": usage.model_dump() if usage and hasattr(usage, "model_dump") else None,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+def _delete_stored_responses(client: OpenAI, response_ids: list[str], audit_log: dict) -> None:
+    """Delete every stored Response on OpenAI's side. Records each attempt."""
+    for rid in response_ids:
+        entry = {
+            "response_id": rid,
+            "attempted_at": datetime.now(timezone.utc).isoformat(),
+        }
+        try:
+            client.responses.delete(rid)
+            entry["status"] = "deleted"
+        except Exception as exc:
+            entry["status"] = "failed"
+            entry["error"] = str(exc)
+        audit_log["deletions"].append(entry)
 
 
 def run_classification_pipeline(
@@ -197,13 +238,39 @@ def run_classification_pipeline(
 ) -> dict:
     """Run the full classification pipeline and return the v4 schema JSON.
 
+    Each invocation is single-shot: a fresh client, no carry-over from prior
+    queries, and all stored OpenAI Responses created during the run are
+    deleted at the end. An audit log of calls, tools and deletions is
+    returned alongside the outputs.
+
     Returns a dict with keys:
       v4_output          – the final v4 schema JSON (dict)
       regulatory_raw     – raw regulatory nano output (dict)
       comparator_raw     – raw comparator nano output (dict)
       orchestrator_raw   – raw orchestrator final text (str)
+      audit_log          – dict of calls + deletions made on OpenAI
     """
     client = OpenAI(api_key=OPENAI_API_KEY)
+
+    audit_log: dict = {
+        "session_id": str(uuid.uuid4()),
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "device_parameters": {
+            "device_description": device_description,
+            "intended_purpose": intended_purpose,
+            "device_type": device_type,
+            "user_type": user_type,
+            "use_environment": use_environment,
+        },
+        "openai_calls": [],
+        "deletions": [],
+        "completed_at": None,
+    }
+
+    def _nano_audit(entry: dict) -> None:
+        entry = dict(entry)
+        entry["recorded_at"] = datetime.now(timezone.utc).isoformat()
+        audit_log["openai_calls"].append(entry)
 
     v4_schema_text = _V4_SCHEMA_PATH.read_text()
 
@@ -241,6 +308,7 @@ Return ONLY the JSON. No markdown fences."""
         tools=ORCHESTRATOR_TOOLS,
         reasoning={"effort": "medium"},
     )
+    _record_orchestrator_call(response, audit_log)
 
     max_rounds = 6
     for _ in range(max_rounds):
@@ -256,7 +324,9 @@ Return ONLY the JSON. No markdown fences."""
                 status_callback(f"Orchestrator: calling {tc.name}...")
 
             tool_output = _execute_tool(
-                tc.name, tc.arguments, status_callback=status_callback
+                tc.name, tc.arguments,
+                status_callback=status_callback,
+                audit_callback=_nano_audit,
             )
 
             if tc.name == "run_regulatory_search":
@@ -289,37 +359,42 @@ Return ONLY the JSON. No markdown fences."""
             previous_response_id=response.id,
             reasoning={"effort": "medium"},
         )
+        _record_orchestrator_call(response, audit_log)
 
     try:
         raw_text = response.output_text
     except Exception:
         raw_text = ""
 
-    if not raw_text:
-        return {
-            "v4_output": {"error": "Orchestrator produced no text output after tool calls"},
-            "regulatory_raw": nano_outputs["regulatory_raw"],
-            "comparator_raw": nano_outputs["comparator_raw"],
-            "orchestrator_raw": "",
-        }
-
-    try:
-        v4_output = json.loads(raw_text)
-    except json.JSONDecodeError:
-        cleaned = raw_text.strip()
-        if cleaned.startswith("```"):
-            lines = cleaned.split("\n", 1)
-            cleaned = lines[1] if len(lines) > 1 else ""
-        if cleaned.endswith("```"):
-            cleaned = cleaned.rsplit("```", 1)[0]
+    if raw_text:
         try:
-            v4_output = json.loads(cleaned.strip())
+            v4_output = json.loads(raw_text)
         except json.JSONDecodeError:
-            v4_output = {"error": "Failed to parse orchestrator output", "raw": raw_text[:3000]}
+            cleaned = raw_text.strip()
+            if cleaned.startswith("```"):
+                lines = cleaned.split("\n", 1)
+                cleaned = lines[1] if len(lines) > 1 else ""
+            if cleaned.endswith("```"):
+                cleaned = cleaned.rsplit("```", 1)[0]
+            try:
+                v4_output = json.loads(cleaned.strip())
+            except json.JSONDecodeError:
+                v4_output = {"error": "Failed to parse orchestrator output", "raw": raw_text[:3000]}
+    else:
+        v4_output = {"error": "Orchestrator produced no text output after tool calls"}
+
+    if status_callback:
+        status_callback("Cleanup: deleting stored OpenAI responses...")
+
+    response_ids = [call["response_id"] for call in audit_log["openai_calls"]]
+    _delete_stored_responses(client, response_ids, audit_log)
+
+    audit_log["completed_at"] = datetime.now(timezone.utc).isoformat()
 
     return {
         "v4_output": v4_output,
         "regulatory_raw": nano_outputs["regulatory_raw"],
         "comparator_raw": nano_outputs["comparator_raw"],
         "orchestrator_raw": raw_text,
+        "audit_log": audit_log,
     }

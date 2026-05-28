@@ -77,8 +77,14 @@ def run_comparator_engine(
     use_environment: str,
     *,
     status_callback=None,
+    audit_callback=None,
 ) -> dict:
-    """Run the comparator engine nano agent and return structured JSON."""
+    """Run the comparator engine nano agent and return structured JSON.
+
+    If audit_callback is provided, it is called once with a dict containing
+    response_id, model, tools_invoked, and usage so the orchestrator can
+    delete the stored response and record the call.
+    """
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     schema_ctx = _load_schema_summary()
@@ -110,6 +116,21 @@ Return JSON only."""
     )
 
     raw_text = response.output_text
+
+    if audit_callback:
+        tools_invoked = sorted({
+            item.type for item in response.output
+            if item.type in ("web_search_call",)
+        })
+        usage = getattr(response, "usage", None)
+        audit_callback({
+            "agent": "comparator",
+            "response_id": response.id,
+            "model": NANO_MODEL,
+            "tools_offered": ["web_search"],
+            "tools_invoked": tools_invoked,
+            "usage": usage.model_dump() if usage and hasattr(usage, "model_dump") else None,
+        })
 
     if status_callback:
         status_callback("Comparator engine: parsing results...")

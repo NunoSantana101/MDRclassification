@@ -1,7 +1,8 @@
 """MDR Classification — Streamlit application.
 
-Chat-style interface with sidebar form for device parameters.
-Orchestrates nano agents via gpt-5.4-mini composition agent.
+Single-shot per query: each submission runs a fresh classification with
+no carry-over from previous queries. At the end of every run, all stored
+OpenAI Responses are deleted and an audit log is produced.
 """
 
 from __future__ import annotations
@@ -32,21 +33,17 @@ if not OPENAI_API_KEY:
     )
     st.stop()
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 if "classification_result" not in st.session_state:
     st.session_state.classification_result = None
+if "device_params" not in st.session_state:
+    st.session_state.device_params = None
 
 device_params = render_sidebar()
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-if st.session_state.classification_result:
-    render_classification_result(st.session_state.classification_result)
-
 if device_params:
+    st.session_state.classification_result = None
+    st.session_state.device_params = device_params
+
     user_msg = (
         f"**Classify this device:**\n\n"
         f"- **Description:** {device_params['device_description']}\n"
@@ -55,7 +52,6 @@ if device_params:
         f"- **User:** {device_params['user_type']}\n"
         f"- **Environment:** {device_params['use_environment']}"
     )
-    st.session_state.messages.append({"role": "user", "content": user_msg})
 
     with st.chat_message("user"):
         st.markdown(user_msg)
@@ -82,16 +78,13 @@ if device_params:
             )
 
             st.session_state.classification_result = result
-            render_classification_result(result)
-
-            v4 = result.get("v4_output", {})
-            s1 = v4.get("section_1_final_mdr_device_classification", {})
-            summary = s1.get("single_sentence_statement", "Classification complete.")
-            st.session_state.messages.append({"role": "assistant", "content": summary})
 
         except Exception as exc:
             status_container.update(label="Error", state="error", expanded=True)
             st.error(f"Pipeline error: {exc}")
-            st.session_state.messages.append(
-                {"role": "assistant", "content": f"Error: {exc}"}
-            )
+
+if st.session_state.classification_result:
+    render_classification_result(
+        st.session_state.classification_result,
+        st.session_state.device_params,
+    )
