@@ -75,19 +75,26 @@ ACTIVE_FUNCTIONS = [
     "Administers or removes medicines, body liquids or other substances",
 ]
 
-DECISION_SIGNIFICANCE = [
-    "Other diagnostic or therapeutic decisions (Class IIa)",
-    "May cause serious deterioration or surgical intervention (Class IIb)",
-    "May cause death or irreversible deterioration (Class III)",
+NA = "N/A"
+
+R11_DECISION_OPTIONS = [
+    NA,
+    "Informs only — does not drive a decision (Class I)",
+    "Drives other diagnostic or therapeutic decisions (Class IIa)",
+    "Drives a decision that may cause serious deterioration or surgical intervention (Class IIb)",
+    "Drives a decision that may cause death or irreversible deterioration (Class III)",
 ]
 
-MONITORING_ROLE = [
-    "Does not monitor",
-    "Monitors other physiological parameters (Class IIa)",
+R11_MONITORING_OPTIONS = [
+    NA,
+    "Monitors non-vital physiological parameters (Class IIa)",
     "Monitors vital parameters where variation could cause immediate danger (Class IIb)",
 ]
 
-NA = "N/A"
+R11_HARDWARE_OPTIONS = [
+    NA,
+    "Drives or controls a hardware device — inherits host classification pathway",
+]
 
 R14_MED_OPTIONS = [
     NA,
@@ -287,35 +294,46 @@ def render_sidebar() -> dict | None:
                     help="Rule 22 — Class III.",
                 )
 
-            # ── 5. Software (gated) ───────────────────────────────
-            st.subheader("5. Software (MDSW)")
-            is_mdsw = _toggle(
-                "Standalone medical device software (MDSW)",
-                help="Gates Rule 11. Skip if the device is not software.",
+            # ── 5. Software (MDSW) — Rule 11 ──────────────────────
+            st.subheader("5. Software (MDSW) — Rule 11")
+            st.caption(
+                "Three independent rows. Leave each at **N/A** when the "
+                "branch doesn't apply. Any non-N/A pick marks the device "
+                "as MDSW; the highest class across the three rows wins."
             )
-            info_drives_decisions = "No"
-            decision_significance = ""
-            monitoring_role = ""
-            drives_hardware_device = "No"
-            if is_mdsw == "Yes":
-                info_drives_decisions = _toggle(
-                    "Information drives a diagnostic or therapeutic decision",
-                    help='If "No", Rule 11 places the software at Class I.',
-                )
-                if info_drives_decisions == "Yes":
-                    decision_significance = st.selectbox(
-                        "Impact of that decision",
-                        DECISION_SIGNIFICANCE,
-                        index=0,
-                        help="Picks the Rule 11 class.",
+            rule_11_decision_choice = st.selectbox(
+                "Decision-driving information",
+                R11_DECISION_OPTIONS,
+                index=0,
+                help="Picks the Rule 11 class for software that informs decisions.",
+            )
+            rule_11_monitoring_choice = st.selectbox(
+                "Monitoring of physiological processes",
+                R11_MONITORING_OPTIONS,
+                index=0,
+                help="Picks the Rule 11 class for monitoring software.",
+            )
+            rule_11_hardware_choice = st.selectbox(
+                "Drives or controls a hardware device",
+                R11_HARDWARE_OPTIONS,
+                index=0,
+                help=(
+                    "If yes, the software inherits the host device's "
+                    "classification pathway."
+                ),
+            )
+            is_mdsw = (
+                "Yes"
+                if any(
+                    v != NA
+                    for v in (
+                        rule_11_decision_choice,
+                        rule_11_monitoring_choice,
+                        rule_11_hardware_choice,
                     )
-                monitoring_role = st.selectbox(
-                    "Monitoring role", MONITORING_ROLE, index=0
                 )
-                drives_hardware_device = _toggle(
-                    "Drives or controls a hardware device",
-                    help="If yes, the software inherits the host device's pathway.",
-                )
+                else "No"
+            )
 
             # ── 6. Special-rule triggers ──────────────────────────
             st.subheader("6. Special-rule triggers")
@@ -428,12 +446,12 @@ def render_sidebar() -> dict | None:
             "hazardous_energy_administration": hazardous_energy_administration,
             "monitors_vital_immediate_danger": monitors_vital_immediate_danger,
             "integrated_closed_loop_diagnostic": integrated_closed_loop_diagnostic,
-            # Section 5
+            # Section 5 — Rule 11 (each value is "N/A" when the branch
+            # does not apply; is_mdsw is derived from any non-N/A row)
             "is_mdsw": is_mdsw,
-            "info_drives_decisions": info_drives_decisions,
-            "decision_significance": decision_significance,
-            "monitoring_role": monitoring_role,
-            "drives_hardware_device": drives_hardware_device,
+            "rule_11_decision_choice": rule_11_decision_choice,
+            "rule_11_monitoring_choice": rule_11_monitoring_choice,
+            "rule_11_hardware_choice": rule_11_hardware_choice,
             # Section 6 (each value is "N/A" when the rule does not apply,
             # otherwise the descriptive option with class annotation)
             "rule_14_medicinal_substance": rule_14_medicinal_substance,

@@ -151,17 +151,19 @@ def _render_device_parameters(doc, p: dict) -> None:
         ])
     _add_kv_table(doc, active_rows)
 
-    doc.add_paragraph("5. Software specifics (MDSW)", style="MDRH2")
+    doc.add_paragraph("5. Software (MDSW) — Rule 11", style="MDRH2")
+    r11_rows = [
+        ("rule_11_decision_choice", "Decision-driving information"),
+        ("rule_11_monitoring_choice", "Monitoring of physiological processes"),
+        ("rule_11_hardware_choice", "Drives or controls a hardware device"),
+    ]
     mdsw_rows: list[tuple[str, str]] = [
         ("Standalone MDSW", _yn(p.get("is_mdsw"))),
     ]
-    if p.get("is_mdsw") == "Yes":
-        mdsw_rows.extend([
-            ("Information drives decisions", _yn(p.get("info_drives_decisions"))),
-            ("Decision impact", p.get("decision_significance", "") or "—"),
-            ("Monitoring role", p.get("monitoring_role", "") or "—"),
-            ("Drives or controls a hardware device", _yn(p.get("drives_hardware_device"))),
-        ])
+    for key, label in r11_rows:
+        v = p.get(key)
+        if v and v != "N/A":
+            mdsw_rows.append((label, v))
     _add_kv_table(doc, mdsw_rows)
 
     doc.add_paragraph("6. Special-rule triggers", style="MDRH2")
