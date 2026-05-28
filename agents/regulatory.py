@@ -134,8 +134,14 @@ def run_regulatory_search(
     applicable_rules_hint: str,
     *,
     status_callback=None,
+    audit_callback=None,
 ) -> dict:
-    """Run the regulatory search nano agent and return structured JSON."""
+    """Run the regulatory search nano agent and return structured JSON.
+
+    If audit_callback is provided, it is called once with a dict containing
+    response_id, model, tools_invoked, and usage so the orchestrator can
+    delete the stored response and record the call.
+    """
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     user_prompt = f"""DEVICE FACT PATTERN FOR REGULATORY RETRIEVAL
@@ -190,6 +196,21 @@ Return JSON only."""
     )
 
     raw_text = response.output_text
+
+    if audit_callback:
+        tools_invoked = sorted({
+            item.type for item in response.output
+            if item.type in ("file_search_call", "web_search_call")
+        })
+        usage = getattr(response, "usage", None)
+        audit_callback({
+            "agent": "regulatory",
+            "response_id": response.id,
+            "model": NANO_MODEL,
+            "tools_offered": ["file_search", "web_search"],
+            "tools_invoked": tools_invoked,
+            "usage": usage.model_dump() if usage and hasattr(usage, "model_dump") else None,
+        })
 
     if status_callback:
         status_callback("Regulatory search: parsing results (vector store + regulatory site checks)...")
