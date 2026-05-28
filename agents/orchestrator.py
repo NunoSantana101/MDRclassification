@@ -27,13 +27,61 @@ YOUR WORKFLOW:
 2. Call run_regulatory_search to retrieve Annex VIII rule texts and
    relevant guidance — it searches the vector store first (contains MDR
    full text, MDCG 2019-11, ISO 13485:2016), then uses web search for
-   additional sources and update checks.
-3. Using the retrieved regulatory sources, perform rule-by-rule
+   additional sources and update checks. Explicitly request MDCG 2022-5
+   (borderline between medical devices and medicinal products) so the
+   qualification analysis below has its authoritative source.
+3. Run the QUALIFICATION GATE (next section) before any Annex VIII
+   rule-by-rule assessment.
+4. Using the retrieved regulatory sources, perform rule-by-rule
    assessment of all 22 Annex VIII rules.
-4. Call run_comparator_engine to find and rank comparable MDR-certified
+5. Call run_comparator_engine to find and rank comparable MDR-certified
    devices using the similarity engine.
-5. Compose the final classification output as a single JSON object
-   conforming to the v4 schema.
+6. Compose the final classification output as a single JSON object
+   conforming to the v4 schema, applying the conditional-framing rules
+   below when qualification is borderline or fails.
+
+QUALIFICATION GATE — RUN BEFORE ANNEX VIII:
+Before assigning any Annex VIII class you MUST determine whether the
+product qualifies as a medical device under Article 2(1) MDR. This is
+the gate, not a caveat. Annex VIII applies only if qualification
+survives.
+
+Apply the MDCG 2022-5 principal-intended-action test (Article 2(1) MDR
++ Directive 2001/83/EC):
+- If the principal intended action is achieved by pharmacological,
+  immunological or metabolic means, the product is a medicinal product
+  and falls OUTSIDE the scope of the MDR. Any Annex VIII class is then
+  CONDITIONAL on the device qualification surviving.
+- If the principal intended action is mechanical, physical, energetic
+  or software-based, the product qualifies as a medical device and
+  Annex VIII applies normally.
+- For combination products (device with an ancillary medicinal
+  substance), the product is a device and Rule 14 escalation applies.
+- The user-supplied "Principal mode of action" field is the primary
+  signal; cross-check it against the device description, intended
+  purpose and the regulatory sources before locking the verdict.
+
+WHEN QUALIFICATION IS BORDERLINE OR FAILS:
+- section_1.single_sentence_statement MUST lead with the qualification
+  finding (e.g. "This product likely falls outside MDR scope as a
+  medicinal product under Directive 2001/83/EC; the Annex VIII
+  classification below is conditional on the device qualification
+  surviving.").
+- section_2.single_paragraph_statement MUST frame the named primary
+  rule as a contingent reading.
+- section_3.controlling_logic_prose MUST lead with the qualification
+  reasoning, cite the MDCG 2022-5 principal-intended-action test, and
+  then introduce the Annex VIII analysis as the contingent reading.
+- section_3.consequence_assessment_prose MUST note that the consequence
+  chain is contingent on qualification.
+- section_9.interpretive_uncertainties_flagged MUST include a
+  load_bearing_to_classification entry whose uncertainty_type is the
+  qualification question.
+- section_11.status MUST reflect the contingent nature (use
+  "PROVISIONAL_PENDING_QUALIFICATION" or similar wording inside the
+  closing_statement_prose if the schema accepts only fixed enums).
+- Still complete the full Annex VIII rule-by-rule assessment, but
+  present every class reference as conditional.
 
 CRITICAL CONSTRAINTS:
 - You MUST call both tools. Do not skip regulatory search or
@@ -270,6 +318,13 @@ def _format_device_brief(p: dict) -> str:
         triggers.append(f"Rule 21 — substances via orifice or skin (mode of action: {mode})")
 
     lines = [
+        "0. QUALIFICATION (RUN THIS GATE FIRST)",
+        f"   Principal mode of action (user-supplied): {p.get('principal_mode_of_action', '—')}",
+        "   Apply the MDCG 2022-5 principal-intended-action test before",
+        "   any Annex VIII rule. Pharmacological / immunological / metabolic",
+        "   principal action → likely medicinal product, Annex VIII output",
+        "   is conditional on device qualification surviving.",
+        "",
         "1. IDENTITY AND PURPOSE",
         f"   Device description: {p.get('device_description', '')}",
         f"   Intended purpose (medical claim): {p.get('intended_purpose', '')}",
@@ -379,15 +434,22 @@ STRUCTURED DEVICE PARAMETERS
 
 INSTRUCTIONS
 ============
-1. First call run_regulatory_search to retrieve Annex VIII rule texts
-   and relevant guidance. Use the structured parameters above to derive
-   the applicable_rules_hint (e.g. Rule 11 for MDSW, Rule 14 for
-   medicinal substance, Rule 22 for closed-loop diagnostic, etc.).
-2. Perform your rule-by-rule assessment using the retrieved texts and
+1. First call run_regulatory_search. In applicable_rules_hint include
+   the Annex VIII rules engaged AND request MDCG 2022-5 sections on the
+   borderline between medical devices and medicinal products plus
+   Article 2(1) MDR — these are needed for the qualification gate.
+2. Run the QUALIFICATION GATE described in your system instructions
+   BEFORE the Annex VIII rule-by-rule assessment. Use the user-supplied
+   "Principal mode of action" together with the retrieved MDCG 2022-5
+   principal-intended-action test. If the principal action is
+   pharmacological, immunological or metabolic, treat the product as
+   likely outside MDR scope and frame every Annex VIII output as
+   conditional per the system-instruction rules.
+3. Perform the rule-by-rule assessment using the retrieved texts and
    the structured parameters. The fields above directly encode the
    implementing logic of Annex VIII — do not contradict them.
-3. Then call run_comparator_engine to find comparable devices.
-4. Compose the final output as JSON conforming to this schema:
+4. Then call run_comparator_engine to find comparable devices.
+5. Compose the final output as JSON conforming to this schema:
 
 {v4_schema_text}
 

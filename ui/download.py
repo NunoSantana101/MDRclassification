@@ -104,13 +104,23 @@ def _render_device_parameters(doc, p: dict) -> None:
     doc.add_paragraph("Device Parameters", style="MDRH1")
 
     doc.add_paragraph("1. Identity and purpose", style="MDRH2")
+    principal = p.get("principal_mode_of_action", "") or "—"
     _add_kv_table(doc, [
         ("Description", p.get("device_description", "")),
         ("Intended purpose (medical claim)", p.get("intended_purpose", "")),
+        ("Principal mode of action", principal),
         ("Reusability", p.get("reusability", "")),
         ("Sterile state", p.get("sterile_state", "")),
         ("Measuring function", _yn(p.get("measuring_function"))),
     ])
+    if principal in {"Pharmacological", "Immunological", "Metabolic"}:
+        _add_inline(
+            doc.add_paragraph(style="MDRQuote"),
+            "*Qualification gate:* principal action is "
+            f"{principal.lower()}. Under MDCG 2022-5 + Article 2(1) MDR "
+            "this product likely falls outside MDR scope as a medicinal "
+            "product. The Annex VIII classification below is conditional.",
+        )
 
     doc.add_paragraph("2. Invasiveness and body contact", style="MDRH2")
     _add_kv_table(doc, [

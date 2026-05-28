@@ -9,6 +9,17 @@ from __future__ import annotations
 import streamlit as st
 
 
+PRINCIPAL_MODE = [
+    "Mechanical / physical",
+    "Electrical / electronic",
+    "Software / algorithm",
+    "Pharmacological",
+    "Immunological",
+    "Metabolic",
+    "Combination (device + ancillary medicinal substance)",
+    "Unsure / borderline",
+]
+
 REUSABILITY = [
     "Single-use",
     "Reusable",
@@ -148,6 +159,18 @@ def render_sidebar() -> dict | None:
                 help=(
                     "State the claim, not the mechanism. Every rule reads "
                     "from this field."
+                ),
+            )
+            principal_mode_of_action = st.selectbox(
+                "Principal mode of action *",
+                PRINCIPAL_MODE,
+                index=0,
+                help=(
+                    "Qualification gate (MDCG 2022-5 + Article 2(1) MDR). "
+                    "If the principal action is pharmacological, immunological "
+                    "or metabolic, the product is likely a medicinal product "
+                    "under Directive 2001/83/EC and falls outside MDR scope. "
+                    "Annex VIII output will be presented as conditional."
                 ),
             )
             reusability = st.selectbox("Reusability", REUSABILITY, index=0)
@@ -366,6 +389,7 @@ def render_sidebar() -> dict | None:
             # Section 1
             "device_description": device_description.strip(),
             "intended_purpose": intended_purpose.strip(),
+            "principal_mode_of_action": principal_mode_of_action,
             "reusability": reusability,
             "sterile_state": sterile_state,
             "measuring_function": measuring_function,
