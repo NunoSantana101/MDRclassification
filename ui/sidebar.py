@@ -87,28 +87,62 @@ MONITORING_ROLE = [
     "Monitors vital parameters where variation could cause immediate danger (Class IIb)",
 ]
 
-NANO_EXPOSURE = [
-    "Negligible",
-    "Low",
-    "Medium or high",
+NA = "N/A"
+
+R14_MED_OPTIONS = [
+    NA,
+    "Triggered — medicinal substance with ancillary action (Class III)",
 ]
 
-R15_FORM = [
-    "Barrier, oral or other non-invasive",
-    "Implantable or long-term invasive",
+R14_BLOOD_OPTIONS = [
+    NA,
+    "Triggered — human blood derivative (Class III)",
 ]
 
-R16_TARGET = [
-    "Non-invasive medical devices",
-    "Invasive medical devices",
-    "Contact lenses",
+R15_OPTIONS = [
+    NA,
+    "Barrier, oral or other non-invasive (Class IIb)",
+    "Implantable or long-term invasive (Class III)",
 ]
 
-R21_ACTION = [
-    "Local action on skin or nasal/oral cavity (IIa)",
-    "Local action elsewhere in the body (IIb)",
-    "Systemically absorbed to achieve intended purpose (III)",
-    "Acts in stomach or lower GI and is systemically absorbed (III)",
+R16_OPTIONS = [
+    NA,
+    "Disinfects non-invasive medical devices (Class IIa)",
+    "Disinfects invasive medical devices (Class IIb)",
+    "Disinfects, cleans, rinses or hydrates contact lenses (Class IIb)",
+]
+
+R17_OPTIONS = [
+    NA,
+    "Triggered — records X-ray diagnostic images (Class IIa)",
+]
+
+R18_OPTIONS = [
+    NA,
+    "Non-viable human-origin tissue or derivative (Class III)",
+    "Animal-origin tissue, intact-skin contact only (Class IIa)",
+    "Animal-origin tissue, other contact (Class III)",
+]
+
+R19_OPTIONS = [
+    NA,
+    "Negligible internal exposure potential (Class IIa)",
+    "Low internal exposure potential (Class IIb)",
+    "Medium or high internal exposure potential (Class III)",
+]
+
+R20_OPTIONS = [
+    NA,
+    "Standard mode of action (Class IIa)",
+    "Essential impact on efficacy/safety, or life-threatening (Class IIb)",
+]
+
+R21_OPTIONS = [
+    NA,
+    "Local action on skin or nasal/oral cavity (Class IIa)",
+    "Local action elsewhere in the body (Class IIb)",
+    "Systemically absorbed to achieve intended purpose (Class III)",
+    "Acts in stomach or lower GI and is systemically absorbed (Class III)",
 ]
 
 USER_TYPES = [
@@ -285,84 +319,62 @@ def render_sidebar() -> dict | None:
 
             # ── 6. Special-rule triggers ──────────────────────────
             st.subheader("6. Special-rule triggers")
-            st.caption("Tick only what applies. Sub-questions appear when needed.")
-
-            rule_14_medicinal_substance = st.checkbox(
-                "Incorporates a medicinal substance with ancillary action (Rule 14, III)"
-            )
-            rule_14_blood_derivative = st.checkbox(
-                "Incorporates a human blood derivative (Rule 14, III)"
-            )
-            rule_18_non_viable_tissue = st.checkbox(
-                "Incorporates non-viable human or animal tissue or derivative (Rule 18, III)"
+            st.caption(
+                "Leave each row at **N/A** when the rule doesn't apply. "
+                "Picking any other option both triggers the rule and selects "
+                "the class in one step."
             )
 
-            rule_15_contraception_or_sti = st.checkbox(
-                "Intended for contraception or prevention of sexually transmitted infection (Rule 15)"
+            rule_14_medicinal_substance = st.selectbox(
+                "Rule 14 — incorporates a medicinal substance with ancillary action",
+                R14_MED_OPTIONS,
+                index=0,
             )
-            _r15_pick = st.selectbox(
-                "Form of the device",
-                R15_FORM,
+            rule_14_blood_derivative = st.selectbox(
+                "Rule 14 — incorporates a human blood derivative",
+                R14_BLOOD_OPTIONS,
+                index=0,
+            )
+            rule_15_choice = st.selectbox(
+                "Rule 15 — contraception or prevention of sexually transmitted infection",
+                R15_OPTIONS,
                 index=0,
                 help="Implantable or long-term invasive contraceptives → III; others → IIb.",
-                disabled=not rule_15_contraception_or_sti,
-                key="r15_form_pick",
             )
-            rule_15_form = _r15_pick if rule_15_contraception_or_sti else ""
-
-            rule_16_disinfection = st.checkbox(
-                "Specifically disinfects, cleans, sterilises or hydrates medical devices (Rule 16)"
-            )
-            _r16_pick = st.selectbox(
-                "What does it process?",
-                R16_TARGET,
+            rule_16_choice = st.selectbox(
+                "Rule 16 — disinfects, cleans, sterilises or hydrates medical devices",
+                R16_OPTIONS,
                 index=0,
                 help="Invasive devices or contact lenses → IIb; non-invasive → IIa.",
-                disabled=not rule_16_disinfection,
-                key="r16_target_pick",
             )
-            rule_16_target = _r16_pick if rule_16_disinfection else ""
-
-            rule_17_xray_images = st.checkbox(
-                "Records diagnostic images generated by X-ray (Rule 17, IIb)"
+            rule_17_xray_images = st.selectbox(
+                "Rule 17 — records diagnostic images generated by X-ray",
+                R17_OPTIONS,
+                index=0,
             )
-
-            rule_19_nanomaterial = st.checkbox(
-                "Incorporates or consists of nanomaterial (Rule 19)"
+            rule_18_non_viable_tissue = st.selectbox(
+                "Rule 18 — incorporates non-viable human or animal tissue",
+                R18_OPTIONS,
+                index=0,
             )
-            _r19_pick = st.selectbox(
-                "Internal exposure potential",
-                NANO_EXPOSURE,
+            rule_19_choice = st.selectbox(
+                "Rule 19 — incorporates or consists of nanomaterial",
+                R19_OPTIONS,
                 index=0,
                 help="Negligible → IIa, Low → IIb, Medium or high → III.",
-                disabled=not rule_19_nanomaterial,
-                key="r19_exposure_pick",
             )
-            nanomaterial_exposure_potential = _r19_pick if rule_19_nanomaterial else ""
-
-            rule_20_inhalation = st.checkbox(
-                "Administers medicinal products by inhalation via a body orifice (Rule 20)"
-            )
-            _r20_pick = _toggle(
-                "Mode of action has an essential impact on efficacy/safety, "
-                "or is intended for life-threatening conditions",
-                help='If "Yes" → Class IIb; otherwise → Class IIa.',
-                disabled=not rule_20_inhalation,
-            )
-            rule_20_essential_to_efficacy = _r20_pick if rule_20_inhalation else "No"
-
-            rule_21_absorbed_substance = st.checkbox(
-                "Composed of substances introduced via body orifice or applied to the skin (Rule 21)"
-            )
-            _r21_pick = st.selectbox(
-                "Mode of action",
-                R21_ACTION,
+            rule_20_choice = st.selectbox(
+                "Rule 20 — administers medicinal products by inhalation via a body orifice",
+                R20_OPTIONS,
                 index=0,
-                help="Selects the Rule 21 class.",
-                disabled=not rule_21_absorbed_substance,
-                key="r21_action_pick",
+                help="Essential impact on efficacy/safety or life-threatening → IIb; otherwise IIa.",
             )
-            rule_21_action_mode = _r21_pick if rule_21_absorbed_substance else ""
+            rule_21_choice = st.selectbox(
+                "Rule 21 — composed of substances via body orifice or applied to the skin",
+                R21_OPTIONS,
+                index=0,
+                help="Mode of action picks the Rule 21 class.",
+            )
 
             # ── 7. Use context ────────────────────────────────────
             st.subheader("7. Use context")
@@ -422,21 +434,17 @@ def render_sidebar() -> dict | None:
             "decision_significance": decision_significance,
             "monitoring_role": monitoring_role,
             "drives_hardware_device": drives_hardware_device,
-            # Section 6
+            # Section 6 (each value is "N/A" when the rule does not apply,
+            # otherwise the descriptive option with class annotation)
             "rule_14_medicinal_substance": rule_14_medicinal_substance,
             "rule_14_blood_derivative": rule_14_blood_derivative,
-            "rule_18_non_viable_tissue": rule_18_non_viable_tissue,
-            "rule_15_contraception_or_sti": rule_15_contraception_or_sti,
-            "rule_15_form": rule_15_form,
-            "rule_16_disinfection": rule_16_disinfection,
-            "rule_16_target": rule_16_target,
+            "rule_15_choice": rule_15_choice,
+            "rule_16_choice": rule_16_choice,
             "rule_17_xray_images": rule_17_xray_images,
-            "rule_19_nanomaterial": rule_19_nanomaterial,
-            "nanomaterial_exposure_potential": nanomaterial_exposure_potential,
-            "rule_20_inhalation": rule_20_inhalation,
-            "rule_20_essential_to_efficacy": rule_20_essential_to_efficacy,
-            "rule_21_absorbed_substance": rule_21_absorbed_substance,
-            "rule_21_action_mode": rule_21_action_mode,
+            "rule_18_non_viable_tissue": rule_18_non_viable_tissue,
+            "rule_19_choice": rule_19_choice,
+            "rule_20_choice": rule_20_choice,
+            "rule_21_choice": rule_21_choice,
             # Section 7
             "user_type": user_type,
             "use_environment": use_environment,

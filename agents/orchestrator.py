@@ -289,33 +289,22 @@ def _format_device_brief(p: dict) -> str:
             return "—"
         return ", ".join(v) if isinstance(v, list) else str(v)
 
+    rule_rows = [
+        ("rule_14_medicinal_substance", "Rule 14 — medicinal substance with ancillary action"),
+        ("rule_14_blood_derivative", "Rule 14 — human blood derivative"),
+        ("rule_15_choice", "Rule 15 — contraception / STI prevention"),
+        ("rule_16_choice", "Rule 16 — disinfection / cleaning / sterilising medical devices"),
+        ("rule_17_xray_images", "Rule 17 — records diagnostic images from X-ray"),
+        ("rule_18_non_viable_tissue", "Rule 18 — non-viable human or animal tissue"),
+        ("rule_19_choice", "Rule 19 — nanomaterial"),
+        ("rule_20_choice", "Rule 20 — administers medicines by inhalation"),
+        ("rule_21_choice", "Rule 21 — substances via orifice or skin"),
+    ]
     triggers = []
-    if p.get("rule_14_medicinal_substance"):
-        triggers.append("Rule 14 — medicinal substance with ancillary action")
-    if p.get("rule_14_blood_derivative"):
-        triggers.append("Rule 14 — human blood derivative")
-    if p.get("rule_18_non_viable_tissue"):
-        triggers.append("Rule 18 — non-viable human or animal tissue")
-    if p.get("rule_15_contraception_or_sti"):
-        form = p.get("rule_15_form") or "—"
-        triggers.append(f"Rule 15 — contraception / STI prevention (form: {form})")
-    if p.get("rule_16_disinfection"):
-        target = p.get("rule_16_target") or "—"
-        triggers.append(f"Rule 16 — disinfection / cleaning / sterilising (target: {target})")
-    if p.get("rule_17_xray_images"):
-        triggers.append("Rule 17 — diagnostic images from X-ray")
-    if p.get("rule_19_nanomaterial"):
-        exp = p.get("nanomaterial_exposure_potential") or "—"
-        triggers.append(f"Rule 19 — nanomaterial (internal exposure potential: {exp})")
-    if p.get("rule_20_inhalation"):
-        ess = yn(p.get("rule_20_essential_to_efficacy"))
-        triggers.append(
-            f"Rule 20 — administers medicines by inhalation "
-            f"(essential to efficacy / life-threatening: {ess})"
-        )
-    if p.get("rule_21_absorbed_substance"):
-        mode = p.get("rule_21_action_mode") or "—"
-        triggers.append(f"Rule 21 — substances via orifice or skin (mode of action: {mode})")
+    for key, label in rule_rows:
+        choice = p.get(key)
+        if choice and choice != "N/A":
+            triggers.append(f"{label}: {choice}")
 
     lines = [
         "0. QUALIFICATION (RUN THIS GATE FIRST)",

@@ -165,33 +165,22 @@ def _render_device_parameters(doc, p: dict) -> None:
     _add_kv_table(doc, mdsw_rows)
 
     doc.add_paragraph("6. Special-rule triggers", style="MDRH2")
+    rule_rows = [
+        ("rule_14_medicinal_substance", "Rule 14", "Medicinal substance with ancillary action"),
+        ("rule_14_blood_derivative", "Rule 14", "Human blood derivative"),
+        ("rule_15_choice", "Rule 15", "Contraception / STI prevention"),
+        ("rule_16_choice", "Rule 16", "Disinfection / cleaning / sterilising medical devices"),
+        ("rule_17_xray_images", "Rule 17", "Records diagnostic images from X-ray"),
+        ("rule_18_non_viable_tissue", "Rule 18", "Non-viable human or animal tissue"),
+        ("rule_19_choice", "Rule 19", "Nanomaterial"),
+        ("rule_20_choice", "Rule 20", "Administers medicines by inhalation"),
+        ("rule_21_choice", "Rule 21", "Substances via orifice or skin"),
+    ]
     trigger_rows: list[tuple[str, str]] = []
-    if p.get("rule_14_medicinal_substance"):
-        trigger_rows.append(("Rule 14", "Medicinal substance with ancillary action"))
-    if p.get("rule_14_blood_derivative"):
-        trigger_rows.append(("Rule 14", "Human blood derivative"))
-    if p.get("rule_18_non_viable_tissue"):
-        trigger_rows.append(("Rule 18", "Non-viable human or animal tissue or derivative"))
-    if p.get("rule_15_contraception_or_sti"):
-        form = p.get("rule_15_form") or "—"
-        trigger_rows.append(("Rule 15", f"Contraception / STI prevention (form: {form})"))
-    if p.get("rule_16_disinfection"):
-        target = p.get("rule_16_target") or "—"
-        trigger_rows.append(("Rule 16", f"Disinfection / cleaning / sterilising (target: {target})"))
-    if p.get("rule_17_xray_images"):
-        trigger_rows.append(("Rule 17", "Diagnostic images from X-ray"))
-    if p.get("rule_19_nanomaterial"):
-        exp = p.get("nanomaterial_exposure_potential") or "—"
-        trigger_rows.append(("Rule 19", f"Nanomaterial (internal exposure: {exp})"))
-    if p.get("rule_20_inhalation"):
-        ess = _yn(p.get("rule_20_essential_to_efficacy"))
-        trigger_rows.append((
-            "Rule 20",
-            f"Administers medicines by inhalation (essential to efficacy / life-threatening: {ess})",
-        ))
-    if p.get("rule_21_absorbed_substance"):
-        mode = p.get("rule_21_action_mode") or "—"
-        trigger_rows.append(("Rule 21", f"Substances via orifice or skin (mode: {mode})"))
+    for key, rule_label, claim in rule_rows:
+        choice = p.get(key)
+        if choice and choice != "N/A":
+            trigger_rows.append((rule_label, f"{claim}: {choice}"))
     if trigger_rows:
         _add_kv_table(doc, trigger_rows)
     else:
