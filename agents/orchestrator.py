@@ -344,20 +344,22 @@ def _format_device_brief(p: dict) -> str:
     else:
         lines.append("   (Sub-questions skipped — Rules 9, 10, 12, 13 and 22 do not apply.)")
 
+    r11_rows = [
+        ("rule_11_decision_choice", "Decision-driving information"),
+        ("rule_11_monitoring_choice", "Monitoring of physiological processes"),
+        ("rule_11_hardware_choice", "Drives or controls a hardware device"),
+    ]
+    r11_picked = [(label, p.get(key)) for key, label in r11_rows
+                  if p.get(key) and p.get(key) != "N/A"]
     lines.extend([
         "",
-        "5. SOFTWARE SPECIFICS (MDSW)",
+        "5. SOFTWARE (MDSW) — RULE 11",
         f"   Standalone MDSW: {yn(p.get('is_mdsw'))}",
     ])
-    if p.get("is_mdsw") == "Yes":
-        lines.extend([
-            f"   Information drives diagnostic/therapeutic decisions: {yn(p.get('info_drives_decisions'))}",
-            f"   Decision impact: {p.get('decision_significance', '—') or '—'}",
-            f"   Monitoring role: {p.get('monitoring_role', '—') or '—'}",
-            f"   Drives or controls a hardware device: {yn(p.get('drives_hardware_device'))}",
-        ])
+    if r11_picked:
+        lines.extend(f"   {label}: {choice}" for label, choice in r11_picked)
     else:
-        lines.append("   (Sub-questions skipped — Rule 11 does not apply.)")
+        lines.append("   (All Rule 11 rows at N/A — Rule 11 does not apply.)")
 
     lines.extend([
         "",
