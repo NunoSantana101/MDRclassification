@@ -458,7 +458,12 @@ Return ONLY the JSON. No markdown fences."""
     )
     _record_orchestrator_call(response, audit_log)
 
-    max_rounds = 10
+    max_rounds = 8
+    tool_call_budgets = {
+        "run_regulatory_search": 4,
+        "run_comparator_engine": 2,
+    }
+    tool_call_counts: dict[str, int] = {}
     for _ in range(max_rounds):
         tool_calls = [
             item for item in response.output if item.type == "function_call"
@@ -468,19 +473,41 @@ Return ONLY the JSON. No markdown fences."""
 
         tool_results_input = []
         for tc in tool_calls:
-            if status_callback:
-                status_callback(f"Orchestrator: calling {tc.name}...")
+            count = tool_call_counts.get(tc.name, 0)
+            limit = tool_call_budgets.get(tc.name, 2)
+            if count >= limit:
+                if status_callback:
+                    status_callback(
+                        f"Budget cap: {tc.name} already called {limit}× — "
+                        f"refusing further calls."
+                    )
+                tool_output = json.dumps({
+                    "error": "tool_budget_exhausted",
+                    "tool": tc.name,
+                    "limit": limit,
+                    "instruction": (
+                        "This tool has reached its per-run budget. Use only "
+                        "the data already retrieved in this session and "
+                        "compose the final v4 schema JSON now. Do not call "
+                        "this tool again."
+                    ),
+                })
+            else:
+                if status_callback:
+                    status_callback(
+                        f"Orchestrator: calling {tc.name} ({count + 1}/{limit})..."
+                    )
+                tool_output = _execute_tool(
+                    tc.name, tc.arguments,
+                    status_callback=status_callback,
+                    audit_callback=_nano_audit,
+                )
+                tool_call_counts[tc.name] = count + 1
 
-            tool_output = _execute_tool(
-                tc.name, tc.arguments,
-                status_callback=status_callback,
-                audit_callback=_nano_audit,
-            )
-
-            if tc.name == "run_regulatory_search":
-                nano_outputs["regulatory_raw"] = json.loads(tool_output)
-            elif tc.name == "run_comparator_engine":
-                nano_outputs["comparator_raw"] = json.loads(tool_output)
+                if tc.name == "run_regulatory_search":
+                    nano_outputs["regulatory_raw"] = json.loads(tool_output)
+                elif tc.name == "run_comparator_engine":
+                    nano_outputs["comparator_raw"] = json.loads(tool_output)
 
             tool_results_input.append({
                 "type": "function_call",
